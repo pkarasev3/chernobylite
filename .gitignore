@@ -1,3 +1,12 @@
 CMakeLists.txt.user
-Build
-build
+Build*
+build*
+tmp*
+*tmp
+*temp
+*~
+*.out
+*.cbp
+*.jpg
+*.png
+
