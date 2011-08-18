@@ -47,17 +47,25 @@ sfigure(1); axis equal; hold off;
 n = npts;
 e = ones(n,1);
 A = spdiags([e -2*e e], -1:1, n, n);
-A(1,:)         = 0*A(1,:); 
-A(end,:)       = 0*A(end,:); 
+A(1,:)          = 0*A(1,:);   A(1,1) = 1;
+A(end,:)        = 0*A(end,:); A(end,end) = 1;
+
+ax = A * xhat - [zeros(npts-1,1); xhat(end) ];
+ay = A * yhat - [zeros(npts-1,1); yhat(end) ];
+assert( 1e-6 > abs( ax(end) ) );
+assert( 1e-6 > abs( ay(end) ) );
+
+% The 'realistic' observed values
+H     = inv(A);  % funky:  imagesc( H );
+xhat0 = A \ (ax + [zeros(npts-1,1); xhat(end) ] ); assert( norm(xhat0 - xhat ) < 1e-6 );
+yhat0 = A \ (ay + [zeros(npts-1,1); yhat(end) ] ); assert( norm(yhat0 - yhat ) < 1e-6 );
 
 
 
-ax= A * xhat_obs;
-ay= A * yhat_obs;
+
 sfigure(2); clf; hold on; 
-plot(ax,'r.'); plot(ay,'b.');   % plot all
-plot(idx_switch,ax(idx_switch),'mx','MarkerSize',12); 
-plot(idx_switch,ay(idx_switch),'cx','MarkerSize',12);  % plot switch points
+plot(sqrt(ax.^2+ay.^2),'r.');   % plot all
+plot(idx_switch,sqrt(ax(idx_switch).^2+ay(idx_switch).^2),'mx','MarkerSize',12); 
 hold off; 
-title('A * x, A * y'); hold off;
+title('ax, ay'); hold off;
 
