@@ -1,7 +1,6 @@
-npts    = 40;
-xhat    = zeros( npts , 1 );
-yhat    = zeros( npts , 1 );
-e_sigma = 1e-2;
+npts    = 100;
+
+e_sigma = 10e-1;
 u = randn(1,1);
 v = randn(1,1);
 normuv = sqrt( u^2 + v^2 );
@@ -9,6 +8,25 @@ u = u / normuv;
 v = v / normuv;
 sum2switch = 0;
 idx_switch = [];
+
+% TODO: for a fixed set of accelerations,
+% run in batch over parameter settings! 
+
+% TODO: make the function take npts, lambda, and return the accelerations
+
+
+% A micro-test! 
+  integrator_mtrx = gallery('triw',10,1,10)';
+  aa = [0;0;1;1;0;0;1;-1;0;0];
+  vv = integrator_mtrx * aa;
+  xx = integrator_mtrx * vv;
+%
+
+n = npts;
+integrator_mtrx = gallery('triw',npts,1,npts)';
+ax = zeros(npts,1);
+ay = zeros(npts,1);
+delta_uv_prv = [0;0];
 for k = 2:npts
   
   lambda = 1;
@@ -17,26 +35,46 @@ for k = 2:npts
   if( sum2switch > npts/5 )
     idx_switch = [idx_switch, k-1];
     sum2switch = 0;
-    u = 0.5 * u + 0.5 * randn(1,1);
-    v = 0.5 * v + 0.5 * randn(1,1);
-    normuv = sqrt( u^2 + v^2 );
-    u = u / normuv;
-    v = v / normuv;
+    delta_uv=zeros(2,1);
+    
+    % enforce a minimum angle turn
+    while( norm(delta_uv)<1e-1 || abs( delta_uv'*delta_uv_prv ) > 0.3 )
+      delta_uv = randn(2,1); 
+      delta_uv = delta_uv / norm(delta_uv);
+    end
+    ax(k) = delta_uv(1);
+    ay(k) = delta_uv(2);
+    delta_uv_prv = delta_uv + delta_uv_prv;
   end
-  xhat(k) = xhat(k-1) + u;
-  yhat(k) = yhat(k-1) + v;
   
 end
 
+vx     = integrator_mtrx * ax;
+vy     = integrator_mtrx * ay;
+xhat   = integrator_mtrx * vx;
+yhat   = integrator_mtrx * vy;
 
-xhat_obs = xhat + randn(size(xhat))*e_sigma;
-yhat_obs = yhat + randn(size(yhat))*e_sigma;
+% TODO: implement H as row * RHS operations, not full dense matrix
+
+% The 'realistic' observed values
+H     = integrator_mtrx*integrator_mtrx;
+xhat0 = H * (ax ); assert( norm(xhat0 - xhat ) < 1e-1 );
+yhat0 = H * (ay ); assert( norm(yhat0 - yhat ) < 1e-1 );
+
+h          = fspecial('gaussian',[3 1],1.0);
+xhat_noisy = imfilter(xhat0 + e_sigma * randn(size(xhat0)),h,'replicate');
+yhat_noisy = imfilter(yhat0 + e_sigma * randn(size(xhat0)),h,'replicate');
+xhat_obs = xhat_noisy;
+yhat_obs = yhat_noisy;
+
+
 sfigure(1); clf; hold on;
 plot( xhat, yhat, '-');   hold on;
 for k = 1:npts
   
   cval = [1.0-k/npts, abs(0.5-k/npts), k/npts];
-  plot( xhat_obs(k), yhat_obs(k), '.','color',cval);   hold on;
+  plot( xhat_obs(k), yhat_obs(k), '.','color',cval);  
+  legend('true path (line)','measurements (points)'); hold on;
   if( ~isempty(find(k==idx_switch, 1) ) )
     plot( xhat(k), yhat(k), '*','color',cval);   hold on;
     plot( xhat_obs(k), yhat_obs(k), '*','color',cval);   hold on;
@@ -44,28 +82,32 @@ for k = 1:npts
 end
 sfigure(1); axis equal; hold off;
 
-n = npts;
-e = ones(n,1);
-A = spdiags([e -2*e e], -1:1, n, n);
-A(1,:)          = 0*A(1,:);   A(1,1) = 1;
-A(end,:)        = 0*A(end,:); A(end,end) = 1;
+W    = eye(npts,npts);
+D    =  [ H , 0*H ; 0*H, H ];
+xhat_noisy(1) = 0;
+yhat_noisy(1) = 0;
+b    =  [ xhat_noisy;  yhat_noisy];
+a_LS = D \ b;
 
-ax = A * xhat - [zeros(npts-1,1); xhat(end) ];
-ay = A * yhat - [zeros(npts-1,1); yhat(end) ];
-assert( 1e-6 > abs( ax(end) ) );
-assert( 1e-6 > abs( ay(end) ) );
+group= [1:npts , 1:npts]' ;
 
-% The 'realistic' observed values
-H     = inv(A);  % funky:  imagesc( H );
-xhat0 = A \ (ax + [zeros(npts-1,1); xhat(end) ] ); assert( norm(xhat0 - xhat ) < 1e-6 );
-yhat0 = A \ (ay + [zeros(npts-1,1); yhat(end) ] ); assert( norm(yhat0 - yhat ) < 1e-6 );
+foo = spgSetParms();
+foo.verbosity  = 2;
+foo.iterations = 5000;
+foo.iter_skip  = 20;
+sval           = 10;
+[X,R,G,INFO]   = spg_group(D,b,group,sval,foo);
+disp(INFO);
+
+L1_x = X(1:end/2); L1_y = X(end/2+1:end);
+sfigure(3); stem(abs(L1_x)+abs(L1_y)); hold on; stem(abs(ax)+abs(ay),'r'); 
+legend('L_1 reconstructed |acceleration|', 'true |acceleration|'); hold off;
 
 
 
 
-sfigure(2); clf; hold on; 
-plot(sqrt(ax.^2+ay.^2),'r.');   % plot all
-plot(idx_switch,sqrt(ax(idx_switch).^2+ay(idx_switch).^2),'mx','MarkerSize',12); 
-hold off; 
-title('ax, ay'); hold off;
+
+
+
+
 
