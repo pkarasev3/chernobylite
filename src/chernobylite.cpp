@@ -17,12 +17,16 @@
 #include <ctype.h>
 #include <vector>
 #include <iostream>
+#include <sstream>
 
 using namespace cv;
 using std::cout;
 using std::cerr;
 using std::endl;
+using std::string;
+using std::stringstream;
 using std::vector;
+using boost::lexical_cast;
 
 namespace {
 
@@ -286,10 +290,38 @@ void poseDrawer(cv::Mat& drawImage, const cv::Mat& K,
 
 }
 
+bool readKfromCalib(cv::Mat& K, cv::Mat& distortion, cv::Size & img_size, const std::string& calibfile)
+{
+  cv::FileStorage fs(calibfile, cv::FileStorage::READ);
+  cv::Mat cameramat;
+  cv::Mat cameradistortion;
+  float width = 0, height = 0;
+  if (fs.isOpened())
+  {
+    cv::read(fs["camera_matrix"], cameramat, cv::Mat());
+    cv::read(fs["distortion_coefficients"], cameradistortion, cv::Mat());
+    cv::read(fs["image_width"], width, 0);
+    cv::read(fs["image_height"], height, 0);
 
+    fs.release();
+
+  }
+  else
+  {
+    throw std::runtime_error("bad calibration!");
+  }
+
+  cv::Size _size(width, height);
+  img_size = _size;
+
+  cameramat.convertTo(K,CV_32F);
+  distortion = cameradistortion;
+  return true;
+}
 
 void computeHomography_NotNormalized(const cv::Mat &img0, const cv::Mat &img1,
-                                     cv::Mat &H, cv::Mat& drawImg, double fscale)
+                                     cv::Mat &H, cv::Mat& drawImg,std::vector<double>& WT_result,
+                                      double fscale )
 {
 
   Ptr<FeatureDetector>     detector  = FeatureDetector::create( "ORB" /*"DynamicSURF"*/ );
@@ -356,7 +388,7 @@ void computeHomography_NotNormalized(const cv::Mat &img0, const cv::Mat &img1,
   int max_N       = 8;
   int maxIters    = 64;
   int iters       = 0;
-  double stepVerh = 1.2;
+  double stepVerh = 1.5;
   double stepVniz = 0.95;
   min_N           = std::max( min_N, (int) (points0.size() * 0.01) );
   max_N           = std::max( max_N, (int) (points0.size() * 0.10) );
@@ -418,8 +450,45 @@ void computeHomography_NotNormalized(const cv::Mat &img0, const cv::Mat &img1,
     cv::solvePnP(Mat(points0xyz_keep),Mat(points1_keep),K,Mat()/*distortion*/,
                        rvec,tvec,false/*init-guess*/);
     cout << "rvec = " << rvec << ", tvec = " << tvec << endl;
+    vector<double> WT(6);
+    assert( rvec.type() == CV_64F && tvec.type() == CV_64F );
+    for( int k=0; k < 3; k++ ) {
+      WT[k]   = rvec.at<double>(k,0);
+      WT[k+3] = tvec.at<double>(k,0);
+    }
+    WT_result = WT;
+
   }
 
+}
+
+
+
+void write_RT_to_csv( const string& csvFile, const vector<double>& WT ) {
+  cout << "attempting to write csv file in " << csvFile << endl;
+  std::ofstream  data(csvFile.c_str());
+  stringstream ss;
+  // ss << "wt_out= " << Mat(WT) << ";"; matlab-format (?)
+  ss <<WT[0]<< ","<< WT[1]<< ","<<WT[2]<<","<<WT[3]<<","<<WT[4]<<","<<WT[5];
+  data << ss.str() << endl;
+  data.close();
+}
+
+void load_RT_from_csv( const string& csvFile, vector<float>& WT ) {
+  cout << "attempting to open csv file in " << csvFile << endl;
+  std::ifstream  data(csvFile.c_str());
+  std::string line;
+  while(std::getline(data,line))
+  {
+    std::stringstream  lineStream(line);
+    std::string        cell;
+    int column_index = 0;
+    while(std::getline(lineStream,cell,',')) {
+      if(column_index > 5) { cerr << "Oh snap, bogus CSV file!" << endl; exit(1); }
+      WT[column_index++] = lexical_cast<float>(cell);
+    }
+  }
+  data.close();
 }
 
 

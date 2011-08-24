@@ -49,34 +49,8 @@ void fillWeightsGaussian(cv::Mat& weights, Type sigma_squared)
 void fillWeightsGaussian32(cv::Mat& weights, float sigma_squared);
 void fillWeightsGaussian64(cv::Mat& weights, double sigma_squared);
 
-inline bool readKfromCalib(cv::Mat& K, cv::Mat& distortion, cv::Size & img_size, const std::string& calibfile)
-{
-  cv::FileStorage fs(calibfile, cv::FileStorage::READ);
-  cv::Mat cameramat;
-  cv::Mat cameradistortion;
-  float width = 0, height = 0;
-  if (fs.isOpened())
-  {
-    cv::read(fs["camera_matrix"], cameramat, cv::Mat());
-    cv::read(fs["distortion_coefficients"], cameradistortion, cv::Mat());
-    cv::read(fs["image_width"], width, 0);
-    cv::read(fs["image_height"], height, 0);
+bool readKfromCalib(cv::Mat& K, cv::Mat& distortion, cv::Size & img_size, const std::string& calibfile);
 
-    fs.release();
-
-  }
-  else
-  {
-    throw std::runtime_error("bad calibration!");
-  }
-
-  cv::Size _size(width, height);
-  img_size = _size;
-
-  cameramat.convertTo(K,CV_32F);
-  distortion = cameradistortion;
-  return true;
-}
 
 /** draw axes on top of image to show pose */
 void poseDrawer(cv::Mat& drawImage, const cv::Mat& K,
@@ -133,10 +107,12 @@ void drawHistogramOfVectorOnImageF32( const std::vector<float>& vec, const std::
                                    const std::string& name = std::string("") );
 
 void computeHomography_NotNormalized( const cv::Mat& img0, const cv::Mat& img1,
-                                      cv::Mat& H, cv::Mat& drawImg, double fscale=1.0);
+                                      cv::Mat& H, cv::Mat& drawImg,
+                                      std::vector<double>& WT_result, double fscale=1.0);
 
-void computeHomography_NotNormalized( const std::vector<cv::Point2f>& srcPts,
-                                      const std::vector<cv::Point2f>& dstPts,
-                                      cv::Mat& H, cv::Mat& drawImg);
+
+void write_RT_to_csv( const string& csvFile, const vector<double>& WT );
+
+void load_RT_from_csv( const string& csvFile, vector<float>& WT );
 
 }

@@ -20,7 +20,10 @@ add_definitions("-Werror -fno-strict-aliasing -Wall -Wl,--no-undefined")
 include_directories(${chernobylite_SOURCE_DIR}/include)
 
 #put impl of all the helpers into library.
-add_library(chernobylite SHARED src/chernobylite.cpp)
+add_library(chernobylite SHARED src/chernobylite.cpp
+                                include/chernobylite/opencv_helpers.hpp
+                                include/chernobylite/file_io.h
+                                include/chernobylite/math_util.h)
 target_link_libraries(chernobylite ${OpenCV_LIBS} ${Boost_LIBRARIES})
 # add libraries and such.
 
