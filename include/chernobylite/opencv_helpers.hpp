@@ -46,15 +46,8 @@ void fillWeightsGaussian(cv::Mat& weights, Type sigma_squared)
   }
 }
 
-void fillWeightsGaussian32(cv::Mat& weights, float sigma_squared)
-{
-  fillWeightsGaussian<float>(weights,sigma_squared);
-}
-
-void fillWeightsGaussian64(cv::Mat& weights, double sigma_squared)
-{
-  fillWeightsGaussian<double>(weights,sigma_squared);
-}
+void fillWeightsGaussian32(cv::Mat& weights, float sigma_squared);
+void fillWeightsGaussian64(cv::Mat& weights, double sigma_squared);
 
 inline bool readKfromCalib(cv::Mat& K, cv::Mat& distortion, cv::Size & img_size, const std::string& calibfile)
 {
@@ -85,58 +78,10 @@ inline bool readKfromCalib(cv::Mat& K, cv::Mat& distortion, cv::Size & img_size,
   return true;
 }
 
-inline void poseDrawer(cv::Mat& drawImage, const cv::Mat& K, 
+/** draw axes on top of image to show pose */
+void poseDrawer(cv::Mat& drawImage, const cv::Mat& K,
                        const cv::Mat& w, const cv::Mat& t, 
-                       const std::string scaleText = std::string(""), int lineThickness=4)
-{
-  using namespace cv;
-  Point3f z(0, 0, -0.25);
-  Point3f x(0.25, 0, 0);
-  Point3f y(0, -0.25, 0);
-  Point3f o(0, 0, 0);
-  vector<Point3f> op(4);
-  op[1] = x, op[2] = y, op[3] = z, op[0] = o;
-  vector<Point2f> ip;
-
-  Mat D = Mat::zeros(4,1,CV_32F);
-  projectPoints(Mat(op), w, t, K, D, ip);
-  double axes_sz = drawImage.rows / 4.0;
-  double zmin    = 5e-2; 
-//  ip[1] = ip[0] + (ip[1]- ip[0] ) * ( axes_sz / norm( ip[1] - ip[0] ) );
-//  ip[2] = ip[0] + (-ip[2]+ip[0] ) * ( axes_sz / norm( ip[2] - ip[0] ) );
-//  ip[3] = ip[0] + (-ip[3]+ip[0] ) * ( (1.0/sqrt(2))*axes_sz / ( zmin + norm( ip[3] - ip[0] ) ) );
-  ip[1] = ip[0] + (ip[1]-ip[0] ) * ( axes_sz / norm( ip[1] - ip[0] ) );
-  ip[2] = ip[0] + (ip[2]-ip[0] ) * ( axes_sz / norm( ip[2] - ip[0] ) );
-  ip[3] = ip[0] + (ip[3]-ip[0] ) * ( (1.0/sqrt(2))*axes_sz / ( zmin + norm( ip[3] - ip[0] ) ) );
-
-  // DRAW AXES LINES  
-  vector<Scalar> c(4); //colors
-  c[0] = Scalar(255, 255, 255);
-  c[1] = Scalar(205, 50, 50);//x
-  c[2] = Scalar(100, 200, 0);//y
-  c[3] = Scalar(200, 100, 205);//z
-  line(drawImage, ip[0], ip[1], c[1],lineThickness,CV_AA);
-  line(drawImage, ip[0], ip[2], c[2],lineThickness,CV_AA);
-  line(drawImage, ip[0], ip[3], c[3],lineThickness,CV_AA);
- 
-  if( scaleText.size() > 1 ) 
-  { // print some text on the image if desired
-    int baseline = 0;
-    Size sz = getTextSize(scaleText, CV_FONT_HERSHEY_SIMPLEX, 1, 1, &baseline);
-    rectangle(drawImage, Point(10, 30 + 5), 
-              Point(10, 30) + Point(sz.width, -sz.height - 5), Scalar::all(0), -1);
-    putText(drawImage, scaleText, Point(10, 30), CV_FONT_HERSHEY_SIMPLEX, 1.0, c[0], 1, CV_AA, false);
-  }
-  
-  // DRAW LETTERS FOR AXES 
-  c[1] += Scalar(50,50,50);
-  c[2] += Scalar(50,50,50);
-  c[3] += Scalar(50,50,50);
-  putText(drawImage, "Z", ip[3], CV_FONT_HERSHEY_SIMPLEX, 1.0, c[3], lineThickness, CV_AA, false);
-  putText(drawImage, "Y", ip[2], CV_FONT_HERSHEY_SIMPLEX, 1.0, c[2], lineThickness, CV_AA, false);
-  putText(drawImage, "X", ip[1], CV_FONT_HERSHEY_SIMPLEX, 1.0, c[1], lineThickness, CV_AA, false);
-
-}
+                       const std::string scaleText = std::string(""), int lineThickness=4);
 
 
 /**  given a "dir" as string and ending extension, put name of files
@@ -161,4 +106,37 @@ void lsFilesOfType(const char * dir, const string& extension,
     closedir(dp);
     std::sort(files.begin(), files.end());
 }
+
+unsigned char*  mat2raw( const cv::Mat&  frame );
+
+void raw2mat(unsigned char*  VideoData, cv::Mat& frame);
+
+double pointMeanInOutDiffCost( const cv::Mat& img, const cv::Point2f& pt_xy, int rad );
+
+
+
+void drawHistogram_internal(cv::Mat& img, const cv::Mat& query,
+                            int npts, int lineHeight, const std::string& name, cv::Point2f xy_draw_start);
+
+template<typename T>
+void drawHistogramOfVectorOnImage( const std::vector<T>& vec, const std::vector<cv::Point2f>& xy,
+                                   cv::Mat& img, cv::Point2f xy0, int npts = 64,
+                                   int lineHeight=48, const std::string& name = std::string("") )
+{
+  assert( ! img.empty() ); // must be created already
+  cv::Mat query(vec);
+  drawHistogram_internal(img,query,npts,lineHeight,name,xy0);
+}
+
+void drawHistogramOfVectorOnImageF32( const std::vector<float>& vec, const std::vector<cv::Point2f>& xy,
+                                   cv::Mat& img, cv::Point2f xy0, int npts = 64, int lineHeight=48,
+                                   const std::string& name = std::string("") );
+
+void computeHomography_NotNormalized( const cv::Mat& img0, const cv::Mat& img1,
+                                      cv::Mat& H, cv::Mat& drawImg, double fscale=1.0);
+
+void computeHomography_NotNormalized( const std::vector<cv::Point2f>& srcPts,
+                                      const std::vector<cv::Point2f>& dstPts,
+                                      cv::Mat& H, cv::Mat& drawImg);
+
 }
