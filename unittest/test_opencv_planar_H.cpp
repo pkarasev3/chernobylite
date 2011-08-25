@@ -15,11 +15,12 @@ using namespace chernobylite;
 int main( int ac, char* av [] )
 {
   if( ac < 3 ) {
-    cerr << "usage: " << av[0] << " img1.jpg  img2.jpg [fscale](optional)" << endl;
+    cerr << "usage: " << av[0] << " img1.jpg  img2.jpg [fscale](optional)  [display on](optional)" << endl;
     exit(1);
   }
   string name0 = av[1];
   string name1 = av[2];
+  cout << "attempting to load " << name0 << ", " << name1 << endl;
   Mat img0rgb = imread( name0 );
   Mat img1rgb = imread( name1 );
   assert( !img0rgb.empty() && !img1rgb.empty() );
@@ -34,14 +35,19 @@ int main( int ac, char* av [] )
   computeHomography_NotNormalized(img0rgb,img1rgb,H,drawImg, WT, f0);
   string winName = "correspondences. q to exit.";
 
-  string outFile = "wt_feature_points.out";
+  string outFile  = "wt_feature_points.out";
+  string outImage = "wt_feature_points.png";
   write_RT_to_csv(outFile,WT);
-  cout << Mat(WT) << " \n ...  wrote to " << outFile << endl;
+  imwrite(outImage,drawImg);
+  cout << Mat(WT) << " \n ...  wrote to " << outFile
+                  << " and " << outImage << endl;
 
-  char key = '@';
-  while( key != 'q' ) {
-    imshow( winName, drawImg );
-    key = waitKey(100);
+  if( ac > 4 ) {
+    char key = '@';
+    while( key != 'q' ) {
+      imshow( winName, drawImg );
+      key = waitKey(100);
+    }
   }
 
   // 1) try the PnP
