@@ -382,10 +382,11 @@ void computeHomography_NotNormalized(const cv::Mat &img0, const cv::Mat &img1,
   }
 
 
+  // struct AdaptiveRansacParams { ... };
   double reprojThresh = 1.0/fscale;
   int num_matched = 0;
-  int min_N       = 5;
-  int max_N       = 8;
+  int min_N       = 8;
+  int max_N       = min_N + 5;
   int maxIters    = 64;
   int iters       = 0;
   double stepVerh = 1.5;
