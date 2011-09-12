@@ -5,22 +5,37 @@ addpath('../../display_helpers/');
 
 %filename = 'pk_to_starbux_loop_raw_sensor_data.txt';
 %filename = 'starbux_to_pk_raw_sensor_data.txt';
-%[xhat yhat tvals] = read_sensor_data(filename);
-%xhat  = (imresize(xhat,1/8,'bilinear')); xhat = xhat-xhat(1);
-%yhat  = (imresize(yhat,1/8,'bilinear')); yhat = yhat-yhat(1);
-%tvals = (imresize(tvals,1/8,'bilinear'));
-%xysum = cumsum( abs(yhat)+abs(xhat) );
-%idx   = find( xysum > 0 );
-%xhat(1:(idx(1)-1)) = [];
-%yhat(1:(idx(1)-1)) = [];
-%tvals(1:(idx(1)-1))= []; %#ok<NASGU>
-%tvals = linspace(0,numel(xhat)-1,numel(xhat))'; %tvals-tvals(1);
+filename = 'pk_to_thai_raw_sensor_data.txt';
+bUsePhoneData = true;
+if( bUsePhoneData )
+  [xhat yhat tvals] = read_sensor_data(filename);
+  idx1  = round(numel(xhat)*0.05);
+  xhat  = [xhat( idx1:end)];
+  yhat  = [yhat( idx1:end)];
+  tvals = tvals(idx1:end);
+  xhat  = (imresize(xhat,1/8,'bilinear')); xhat = smooth(xhat-xhat(1),10);
+  yhat  = (imresize(yhat,1/8,'bilinear')); yhat = smooth(yhat-yhat(1),10);
+  tvals = (imresize(tvals,1/8,'bilinear'));
+%   xysum = cumsum( abs(yhat)+abs(xhat) );
+%   idx   = find( xysum > 0 );
+%   xhat(1:(idx(1)-1)) = [];
+%   yhat(1:(idx(1)-1)) = [];
+%   tvals(1:(idx(1)-1))= []; %#ok<NASGU>
+  %tvals = linspace(0,numel(xhat)-1,numel(xhat))'; %tvals-tvals(1);
+else
+  load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
+  idx  = ceil( rand(1,1) * length( plane ) );
+  % index 1815 is crazy !
+  %idx = 1815  %  3328 is moderate
+  plane_t = plane(idx);
+  [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t );
+  xhat = xpRs - xpRs(1);
+  yhat = ypRs-ypRs(1);
+  
+end
 
-load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
-idx  = ceil( rand(1,1) * length( plane ) );
-xhat = plane(idx).ll(1,:)'; xhat = smooth(xhat-xhat(1),10); 
-yhat = plane(idx).ll(2,:)'; yhat = smooth(yhat-yhat(1),10);
-max_val = max( abs( [xhat ; yhat] ) ); xhat = xhat / max_val / 10.0; yhat = yhat / max_val / 10.0;
+
+max_val = max( abs( [xhat ; yhat] ) ); xhat = xhat / max_val ; yhat = yhat / max_val;
 npts = numel(xhat);
 tvals= linspace(0,npts-1,npts)';
 
@@ -31,7 +46,7 @@ opts = spgSetParms();
 opts.verbosity  = 2;
 opts.iterations = 10000;
 opts.iter_skip  = 60;
-sval           = 5e-3*norm(b);
+sval           = 1e-2*norm(b);
 [X,R,G,INFO]   = spg_group(D,b,group,sval,opts);
 disp(INFO);
 
@@ -52,18 +67,18 @@ local_min_x = 0*xhat; local_min_x( mintabx(:,1) ) = 1;
 local_min_y = 0*yhat; local_min_y( mintaby(:,1) ) = 1;
 
 
-legend('reconstructed |acceleration X|','reconstructed |acceleration Y|'); 
+legend('reconstructed |acceleration X|','reconstructed |acceleration Y|');
 hold off; % TODO: Show this together with a least-squares answer !!
 x_recons = H * L1_x;
 y_recons = H * L1_y;
-sfigure(1); clf; hold on; 
-plot( xhat, yhat, '-');   
-plot( x_recons, y_recons, 'r--' ); 
-plot( xhat(local_max_x>0), yhat(local_max_x>0), 'mx','MarkerSize',12);   
-plot( xhat(local_max_y>0), yhat(local_max_y>0), 'cx','MarkerSize',12);   
-plot( xhat(local_min_x>0), yhat(local_min_x>0), 'mo','MarkerSize',12);   
-plot( xhat(local_min_y>0), yhat(local_min_y>0), 'co','MarkerSize',12);   
- legend('meas.','recons.','max a_x','max a_y','min a_x','min a_y');
-% TODO: need a 'moving max' function, with 
+sfigure(1); clf; hold on;
+plot( xhat, yhat, '-');
+plot( x_recons, y_recons, 'r--' );
+plot( xhat(local_max_x>0), yhat(local_max_x>0), 'mx','MarkerSize',12);
+plot( xhat(local_max_y>0), yhat(local_max_y>0), 'cx','MarkerSize',12);
+plot( xhat(local_min_x>0), yhat(local_min_x>0), 'mo','MarkerSize',12);
+plot( xhat(local_min_y>0), yhat(local_min_y>0), 'co','MarkerSize',12);
+legend('meas.','recons.','max a_x','max a_y','min a_x','min a_y');
+% TODO: need a 'moving max' function, with
 % "minimum signal level" to avoid the near-zero stretches
 
