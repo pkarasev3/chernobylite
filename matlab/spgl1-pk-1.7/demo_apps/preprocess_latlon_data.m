@@ -35,8 +35,8 @@ function [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t 
         %Rotate Frame
         xp=xp-xp(1);
         yp=yp-yp(1);
-        dx=xp(10)-xp(1);
-        dy=yp(10)-yp(1);
+        dx=xp(end)-xp(1);
+        dy=yp(end)-yp(1);
         Rang=atan2(dy,dx);
         R=[cos(Rang) sin(Rang);-sin(Rang) cos(Rang)];
         xy=R*[xp; yp];

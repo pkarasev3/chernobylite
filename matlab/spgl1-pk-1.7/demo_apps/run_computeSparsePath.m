@@ -47,7 +47,7 @@ opts = spgSetParms();
 opts.verbosity  = 2;
 opts.iterations = 10000;
 opts.iter_skip  = 60;
-sval           = 5e-2*max(abs(b));
+sval           = 5e-2;
 [X,R,G,INFO]   = spg_group(D,b,group,sval,opts);
 disp(INFO);
 
@@ -62,6 +62,7 @@ y_recons = [0; H * L1_y];
 dy       = smooth( diff([0; y_recons]), 3 );
 dx       = smooth( diff([0; x_recons]), 3 );
 vnorm    = sqrt( dy.^2 + dx.^2 )+1e-99;
+heading0 = 180/pi * (-atan2( dy(:), dx(:) ));
 heading  = [dx(:)'; dy(:)' ] ./ [ vnorm' ; vnorm' ];
 normal   = [0,1;1,0] * heading;
 
@@ -69,9 +70,9 @@ normal   = [0,1;1,0] * heading;
 lin_acc  = sum( heading .* accel_xy, 1 );%.* heading;
 tan_acc  = sum( normal  .* accel_xy, 1 );%.* normal;
 sfigure(3);  clf; hold on;
-plot( tan_acc,'r-.'); plot( lin_acc,'b-'); legend('tangential acc','linear acc');
- 
+plot( tan_acc,'r-.'); plot( lin_acc,'b-'); legend('normal acc','linear acc');
 hold off;
+sfigure(2); clf; hold on; plot( heading0 ); legend('heading (deg)'); hold off;
 
 %peaks_y = ( imfilter( L1_y,fspecial('log',[5 1],3),'replicate' ) );
 %peaks_x = ( imfilter( L1_x,fspecial('log',[5 1],3),'replicate' ) );
