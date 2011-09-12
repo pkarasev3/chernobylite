@@ -25,6 +25,7 @@ if( bUsePhoneData )
 else
   load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
   idx  = ceil( rand(1,1) * length( plane ) );
+  idx1 = 10;
   % index 1815 is crazy !
   %idx = 1815  %  3328 is moderate
   plane_t = plane(idx);
@@ -52,7 +53,22 @@ disp(INFO);
 
 L1_x = X(1:end/2); L1_y = X(end/2+1:end);
 
-sfigure(3); plot( L1_x,'b-.'); hold on; plot( L1_y,'r--');
+sfigure(3); 
+plot( L1_x,'b-.'); hold on; plot( L1_y,'r--');
+
+accel_xy = [L1_x(:)'; L1_y(:)'];
+dy       = smooth( diff([0; yhat(:)]), idx1 );
+dx       = smooth( diff([0; xhat(:)]), idx1 );
+vnorm    = sqrt( dy.^2 + dx.^2 )+1e-99;
+heading  = [dx(:)'; dy(:)' ] ./ [ vnorm' ; vnorm' ];
+
+% TODO: rotate these into the current heading! not "global xy" referenced! 
+lin_acc  = repmat( sum( heading .* accel_xy, 1 ), 2, 1 ) .* accel_xy;
+sfigure(3);  clf;
+plot( lin_acc(1,:),'b-.'); hold on; plot( lin_acc(2,:),'r-.');
+tan_acc  = accel_xy - lin_acc;
+plot( tan_acc(1,:),'b--'); plot( tan_acc(2,:),'r--'); 
+hold off;
 
 %peaks_y = ( imfilter( L1_y,fspecial('log',[5 1],3),'replicate' ) );
 %peaks_x = ( imfilter( L1_x,fspecial('log',[5 1],3),'replicate' ) );
@@ -78,7 +94,7 @@ plot( xhat(local_max_x>0), yhat(local_max_x>0), 'mx','MarkerSize',12);
 plot( xhat(local_max_y>0), yhat(local_max_y>0), 'cx','MarkerSize',12);
 plot( xhat(local_min_x>0), yhat(local_min_x>0), 'mo','MarkerSize',12);
 plot( xhat(local_min_y>0), yhat(local_min_y>0), 'co','MarkerSize',12);
-legend('meas.','recons.','max a_x','max a_y','min a_x','min a_y');
+legend('meas.','recons.','max a_x','max a_y','min a_x','min a_y'); hold off;
 % TODO: need a 'moving max' function, with
 % "minimum signal level" to avoid the near-zero stretches
 
