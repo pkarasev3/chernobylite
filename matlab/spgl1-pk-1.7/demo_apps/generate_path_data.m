@@ -1,4 +1,4 @@
-npts    = 100;
+npts    = 230;
 
 e_sigma = 10e-1;
 u = randn(1,1);
@@ -33,12 +33,12 @@ for k = 2:npts
   sum2switch = sum2switch + poissrnd(lambda,1,1);
   
   if( sum2switch > npts/5 )
-    idx_switch = [idx_switch, k-1];
+    idx_switch = [idx_switch, k-1]; %#ok<AGROW>
     sum2switch = 0;
     delta_uv=zeros(2,1);
     
     % enforce a minimum angle turn
-    while( norm(delta_uv)<1e-1 || abs( delta_uv'*delta_uv_prv ) > 0.3 )
+    while( norm(delta_uv)<5e-2 || abs( delta_uv'*delta_uv_prv ) > 0.5 )
       delta_uv = randn(2,1); 
       delta_uv = delta_uv / norm(delta_uv);
     end
@@ -83,9 +83,9 @@ end
 sfigure(1); axis equal; hold off;
 
 W    = eye(npts,npts);
-D    =  [ H , 0*H ; 0*H, H ];
-xhat_noisy(1) = 0;
-yhat_noisy(1) = 0;
+D    =  [ H(2:end,:) , 0*H(2:end,:) ; 0*H(2:end,:), H(2:end,:) ];
+xhat_noisy(1) = [];
+yhat_noisy(1) = [];
 b    =  [ xhat_noisy;  yhat_noisy];
 a_LS = D \ b;
 
@@ -95,7 +95,7 @@ foo = spgSetParms();
 foo.verbosity  = 2;
 foo.iterations = 5000;
 foo.iter_skip  = 20;
-sval           = 10;
+sval           = 1e-3*max(abs(b));
 [X,R,G,INFO]   = spg_group(D,b,group,sval,foo);
 disp(INFO);
 
@@ -103,7 +103,21 @@ L1_x = X(1:end/2); L1_y = X(end/2+1:end);
 sfigure(3); stem(abs(L1_x)+abs(L1_y)); hold on; stem(abs(ax)+abs(ay),'r'); 
 legend('L_1 reconstructed |acceleration|', 'true |acceleration|'); hold off;
 
+accel_xy = [L1_x(:)'; L1_y(:)'];
+x_recons = [0; H * L1_x];
+y_recons = [0; H * L1_y];
+sfigure(1); hold on; plot(x_recons,y_recons,'r--','LineWidth',3); hold off;
+dy       = smooth( diff([ y_recons]), 3 );
+dx       = smooth( diff([ x_recons]), 3 );
+vnorm    = sqrt( dy.^2 + dx.^2 )+1e-99;
+heading  = [dx(:)'; dy(:)' ] ./ [ vnorm' ; vnorm' ];
+normal   = [0,1;1,0] * heading;
 
+% TODO: rotate these into the current heading! not "global xy" referenced! 
+lin_acc  = sum( heading .* accel_xy, 1 );%.* heading;
+tan_acc  = sum( normal  .* accel_xy, 1 );%.* normal;
+sfigure(2);  clf; hold on;
+plot( tan_acc,'r-.'); plot( lin_acc,'b-'); legend('tangential acc','linear acc');
 
 
 
