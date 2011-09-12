@@ -1,21 +1,29 @@
 spgl1_path = genpath('..');
 addpath(spgl1_path);
+addpath('../../util/');
+addpath('../../display_helpers/');
 
-filename = 'pk_to_starbux_loop_raw_sensor_data.txt';
+%filename = 'pk_to_starbux_loop_raw_sensor_data.txt';
 %filename = 'starbux_to_pk_raw_sensor_data.txt';
-[xhat yhat tvals] = read_sensor_data(filename);
-xhat  = (imresize(xhat,1/8,'bilinear')); xhat = xhat-xhat(1);
-yhat  = (imresize(yhat,1/8,'bilinear')); yhat = yhat-yhat(1);
-tvals = (imresize(tvals,1/8,'bilinear'));
-xysum = cumsum( abs(yhat)+abs(xhat) );
-idx   = find( xysum > 0 );
-xhat(1:(idx(1)-1)) = [];
-yhat(1:(idx(1)-1)) = [];
-tvals(1:(idx(1)-1))= []; %#ok<NASGU>
-tvals = linspace(0,numel(xhat)-1,numel(xhat))'; %tvals-tvals(1);
+%[xhat yhat tvals] = read_sensor_data(filename);
+%xhat  = (imresize(xhat,1/8,'bilinear')); xhat = xhat-xhat(1);
+%yhat  = (imresize(yhat,1/8,'bilinear')); yhat = yhat-yhat(1);
+%tvals = (imresize(tvals,1/8,'bilinear'));
+%xysum = cumsum( abs(yhat)+abs(xhat) );
+%idx   = find( xysum > 0 );
+%xhat(1:(idx(1)-1)) = [];
+%yhat(1:(idx(1)-1)) = [];
+%tvals(1:(idx(1)-1))= []; %#ok<NASGU>
+%tvals = linspace(0,numel(xhat)-1,numel(xhat))'; %tvals-tvals(1);
 
+load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
+idx  = ceil( rand(1,1) * length( plane ) );
+xhat = plane(idx).ll(1,:)'; xhat = smooth(xhat-xhat(1),10); 
+yhat = plane(idx).ll(2,:)'; yhat = smooth(yhat-yhat(1),10);
+max_val = max( abs( [xhat ; yhat] ) ); xhat = xhat / max_val / 10.0; yhat = yhat / max_val / 10.0;
 npts = numel(xhat);
-%tvals= linspace(0,npts-1,npts);
+tvals= linspace(0,npts-1,npts)';
+
 Kgroups = npts/2;
 [D b group tau_cen H] = setup_matrices( xhat, yhat, tvals, Kgroups);
 
@@ -23,7 +31,7 @@ opts = spgSetParms();
 opts.verbosity  = 2;
 opts.iterations = 10000;
 opts.iter_skip  = 60;
-sval           = 1e-2*norm(b);
+sval           = 5e-3*norm(b);
 [X,R,G,INFO]   = spg_group(D,b,group,sval,opts);
 disp(INFO);
 
