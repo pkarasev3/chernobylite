@@ -25,7 +25,7 @@ if( bUsePhoneData )
 else
   load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
   %idx  = ceil( rand(1,1) * length( plane ) );
-  idx  = 3413; % 3413 is nice and straight, 1 bend
+  %idx  = 3413; % 3413 is nice and straight, 1 bend
   idx1 = 10;
   % index 1815 is crazy !
   idx  = 1815
@@ -37,6 +37,7 @@ else
   
   vxnom = (xhat0(end)-xhat0(1))/(numel(xhat0)-1);
   vynom = (yhat0(end)-yhat0(1))/(numel(yhat0)-1);
+  vy0   = yhat0(2)-yhat0(1);
   xhat_predict = [0; cumsum( vxnom * ones((numel(yhat0)-1),1) ) ] ;
   yhat_predict = [0; cumsum( vynom * ones((numel(yhat0)-1),1) ) ] ;
   xhat  = xhat0 - xhat_predict;
@@ -115,35 +116,37 @@ plot( x_recons, y_recons, 'r--' ); axis equal;
 legend('meas.','recons.'); hold off;
 
 
+N = npts;
+A=eye(N)-diag(ones(N-1,1),1);
+A=A(1:end-1,1:end);
+dt=12/60;
+D=A(1:end-1,1:end-1);
 
- cvx_begin
-        variables z(N) zd(N) zdd(N-1) Ez(N) a(N) ad(N) add(N-1) x(N) y(N) xd(N) yd(N) xdd(N-1) ydd(N-1) s(N) sd(N-1) Ex(N) Ey(N)
+% TODO: try this cvx loop for synthetic data 
+cvx_begin
+        variables  ax(N-1) ay(N-1) vx(N) vy(N) Ex(N) Ey(N) x(N) y(N)
         %minimize(norm(zdd,1)+40*norm(Ez,2)+2*ones(1,N)*(Ey.^2)+2*ones(1,N)*(Ex.^2)+norm(add,1)+.5*norm(sd,1))
-        minimize(norm(zdd,1)+40*norm(Ez,2)+2*ones(1,N)*(Ey.^2)+2*ones(1,N)*(Ex.^2)+norm(add,1)+.5*norm(sd,1))
+        minimize(2*ones(1,N)*(Ey.^2)+2*ones(1,N)*(Ex.^2)+norm(ax,1)+norm(ay,1))
+        
         subject to
-        %Altitude
-        A*z+dt*zd(1:N-1)+(dt^2)/2*zdd == 0
-        A*zd+dt*zdd == 0
-        z(1) == alts(1)
-        z(N) == alts(N)
-        Ez == alts - z
-        %Heading Angle
-        A*a+dt*ad(1:N-1)+(dt^2)/2*add == 0
-        A*ad+dt*add == 0
-        A*x+dt*xd(1:N-1)+(dt^2)/2*xdd == 0
-        %         A*xd+dt*xdd == 0
-        xd==sh*cos(ah)+(s-sh)*cos(ah)-(a-ah)*sh*sin(ah)
-        xdd==sd*cos(ah)-ad(1:N-1)*sh*sin(ah)
-        A*y+dt*yd(1:N-1)+(dt^2)/2*ydd == 0
-        %         A*yd+dt*ydd == 0
-        yd==sh*sin(ah)+(s-sh)*sin(ah)-(a-ah)*sh*cos(ah)
-        ydd==sd*sin(ah)+ad(1:N-1)*sh*cos(ah)
-        A*s+dt*sd == 0
-        a(1)==angs_est(1)*pi/180
-        x(1)==0
-        x(N)==xpR(N)
-        y(1)==0
-        y(N)==0
-        Ex == xpR - x
-        Ey == ypR - y
+        A*vx+dt*ax == 0
+        A*vy+dt*ay == 0
+        A*x+dt*vx(1:N-1)+(dt^2)/2*ax == 0
+        A*y+dt*vy(1:N-1)+(dt^2)/2*ay == 0
+
+        vx(1) == vxnom;
+        vy(1) == vy0;
+        
+        %x(1)==0
+        %x(N)==xhat0(N)
+        %y(1)==0
+        %y(N)==0
+        Ex == xhat0 - x
+        Ey == yhat0 - y
 cvx_end
+
+sfigure(1); hold on; plot( x, y, 'g--'); hold off;
+
+vnorm    = sqrt( vy.^2 + vx.^2 )+1e-99;
+heading1 = 180/pi * (-atan2( vy(:)./vnorm, vx(:)./vnorm ));
+sfigure(2); hold on; plot( heading1, 'r--','LineWidth',4); hold off
