@@ -20,6 +20,8 @@ H               = H(2:end,:);
 
 D    =  [ H , 0*H ; 0*H, H ];
 
+
+
 % expecting the data to start at (x,y) as zero, that's the part we drop
 assert( abs(yhat(1)) < 1e-1 * mean(abs(yhat)) && abs(xhat(1)) < 1e-1 * mean(abs(xhat)) );
 b    =  [ xhat(2:end);  yhat(2:end)];

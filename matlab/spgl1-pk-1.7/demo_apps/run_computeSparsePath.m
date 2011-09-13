@@ -25,18 +25,24 @@ if( bUsePhoneData )
 else
   load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
   %idx  = ceil( rand(1,1) * length( plane ) );
+  idx  = 3413; % 3413 is nice and straight, 1 bend
   idx1 = 10;
   % index 1815 is crazy !
-  idx = 3328  %  3328 is moderate
+  %idx = 3328  %  3328 is moderate
   plane_t = plane(idx);
   [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t );
-  xhat = [zeros(5,1); xpRs - xpRs(1)];
-  yhat = [zeros(5,1); ypRs-ypRs(1)];
+  xhat0 = [xpRs - xpRs(1)];
+  yhat0 = [ypRs - ypRs(1)];
+  
+  xhat_predict = cumtrapz( (xhat0(end)-xhat0(1))/numel(xhat0) * ones(size(xhat0)));
+  yhat_predict = cumtrapz( (yhat0(end)-yhat0(1))/numel(yhat0) * ones(size(yhat0)));
+  xhat  = xhat0 - xhat_predict;
+  yhat  = yhat0 - yhat_predict;
   
 end
 
 
-max_val = max( abs( [xhat ; yhat] ) ); xhat = xhat / max_val ; yhat = yhat / max_val;
+%max_val = max( abs( [xhat ; yhat] ) ); xhat = xhat / max_val ; yhat = yhat / max_val;
 npts = numel(xhat);
 tvals= linspace(0,npts-1,npts)';
 
@@ -47,7 +53,7 @@ opts = spgSetParms();
 opts.verbosity  = 2;
 opts.iterations = 10000;
 opts.iter_skip  = 60;
-sval           = 5e-2;
+sval           = 1.5e-1 * norm(b);
 [X,R,G,INFO]   = spg_group(D,b,group,sval,opts);
 disp(INFO);
 
@@ -59,10 +65,14 @@ plot( L1_x,'b-.'); hold on; plot( L1_y,'r--');
 accel_xy = [L1_x(:)'; L1_y(:)'];
 x_recons = [0; H * L1_x];
 y_recons = [0; H * L1_y];
+
+x_recons = x_recons + xhat_predict;
+y_recons = y_recons + yhat_predict;
+
 dy       = smooth( diff([0; y_recons]), 3 );
 dx       = smooth( diff([0; x_recons]), 3 );
 vnorm    = sqrt( dy.^2 + dx.^2 )+1e-99;
-heading0 = 180/pi * (-atan2( dy(:), dx(:) ));
+heading0 = 180/pi * (atan2( dy(:)./vnorm, dx(:)./vnorm ));
 heading  = [dx(:)'; dy(:)' ] ./ [ vnorm' ; vnorm' ];
 normal   = [0,1;1,0] * heading;
 
@@ -86,11 +96,9 @@ local_max_y = 0*yhat; local_max_y( maxtaby(:,1) ) = 1;
 local_min_x = 0*xhat; local_min_x( mintabx(:,1) ) = 1;
 local_min_y = 0*yhat; local_min_y( mintaby(:,1) ) = 1;
 
-
-
 sfigure(1); clf; hold on;
-plot( xhat, yhat, '-');
-plot( x_recons, y_recons, 'r--' );
+plot( xhat0, yhat0, '-');
+plot( x_recons, y_recons, 'r--' ); axis equal;
 %plot( xhat(local_max_x>0), yhat(local_max_x>0), 'mx','MarkerSize',12);
 %%plot( xhat(local_max_y>0), yhat(local_max_y>0), 'cx','MarkerSize',12);
 %plot( xhat(local_min_x>0), yhat(local_min_x>0), 'mo','MarkerSize',12);
