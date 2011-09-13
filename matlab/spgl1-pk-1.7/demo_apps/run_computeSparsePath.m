@@ -114,3 +114,36 @@ plot( x_recons, y_recons, 'r--' ); axis equal;
 %plot( xhat(local_min_y>0), yhat(local_min_y>0), 'co','MarkerSize',12);
 legend('meas.','recons.'); hold off;
 
+
+
+ cvx_begin
+        variables z(N) zd(N) zdd(N-1) Ez(N) a(N) ad(N) add(N-1) x(N) y(N) xd(N) yd(N) xdd(N-1) ydd(N-1) s(N) sd(N-1) Ex(N) Ey(N)
+        %minimize(norm(zdd,1)+40*norm(Ez,2)+2*ones(1,N)*(Ey.^2)+2*ones(1,N)*(Ex.^2)+norm(add,1)+.5*norm(sd,1))
+        minimize(norm(zdd,1)+40*norm(Ez,2)+2*ones(1,N)*(Ey.^2)+2*ones(1,N)*(Ex.^2)+norm(add,1)+.5*norm(sd,1))
+        subject to
+        %Altitude
+        A*z+dt*zd(1:N-1)+(dt^2)/2*zdd == 0
+        A*zd+dt*zdd == 0
+        z(1) == alts(1)
+        z(N) == alts(N)
+        Ez == alts - z
+        %Heading Angle
+        A*a+dt*ad(1:N-1)+(dt^2)/2*add == 0
+        A*ad+dt*add == 0
+        A*x+dt*xd(1:N-1)+(dt^2)/2*xdd == 0
+        %         A*xd+dt*xdd == 0
+        xd==sh*cos(ah)+(s-sh)*cos(ah)-(a-ah)*sh*sin(ah)
+        xdd==sd*cos(ah)-ad(1:N-1)*sh*sin(ah)
+        A*y+dt*yd(1:N-1)+(dt^2)/2*ydd == 0
+        %         A*yd+dt*ydd == 0
+        yd==sh*sin(ah)+(s-sh)*sin(ah)-(a-ah)*sh*cos(ah)
+        ydd==sd*sin(ah)+ad(1:N-1)*sh*cos(ah)
+        A*s+dt*sd == 0
+        a(1)==angs_est(1)*pi/180
+        x(1)==0
+        x(N)==xpR(N)
+        y(1)==0
+        y(N)==0
+        Ex == xpR - x
+        Ey == ypR - y
+cvx_end
