@@ -28,7 +28,7 @@ else
   idx  = 3413; % 3413 is nice and straight, 1 bend
   idx1 = 10;
   % index 1815 is crazy !
-  %idx  = 1815
+  idx  = 1815
   %idx = 3328  %  3328 is moderate
   plane_t = plane(idx);
   [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t );
@@ -60,7 +60,7 @@ opts = spgSetParms();
 opts.verbosity  = 2;
 opts.iterations = 30000;
 opts.iter_skip  = 60;
-sval           = 1.25 * norm(D * foo - b);
+sval           = 5e-1 * max(abs(b));
 [X,R,G,INFO]   = spg_group(D,b,group,sval,opts);
 disp(INFO);
 

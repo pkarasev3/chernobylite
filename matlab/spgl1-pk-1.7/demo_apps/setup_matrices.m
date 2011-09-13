@@ -25,13 +25,14 @@ H = H(2:end,:);
 G = G0(2:end,2:end);
 
 eps_d= 1e-2 * (norm( xhat) + norm(yhat) );
-D    =  [ H , 0*H ; 0*H, H ; eps_d*G0, 0*G0 ; 0*G0, eps_d*G0 ];
-
+%D    =  [ H , 0*H ; 0*H, H ; eps_d*G0, 0*G0 ; 0*G0, eps_d*G0 ];
+D    =  [ H , 0*H ; 0*H, H ];
 
 
 % expecting the data to start at (x,y) as zero, that's the part we drop
 assert( abs(yhat(1)) < 1e-1 * mean(abs(yhat)) && abs(xhat(1)) < 1e-1 * mean(abs(xhat)) );
-b    =  [ smooth( G * smooth(xhat(2:end),1), 1 );  smooth( G * smooth(yhat(2:end),1), 1 ); zeros(2*npts,1)];
+%b    =  [ smooth( G * smooth(xhat(2:end),1), 1 );  smooth( G * smooth(yhat(2:end),1), 1 ); zeros(2*npts,1)];
+b    =  [ smooth( G * smooth(xhat(2:end),1), 1 );  smooth( G * smooth(yhat(2:end),1), 1 )];
 %b(1) = b(2);
 %b(npts+1) = b(npts+2);
 
