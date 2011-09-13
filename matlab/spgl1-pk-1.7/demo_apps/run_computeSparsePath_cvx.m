@@ -24,15 +24,17 @@ if( bUsePhoneData )
   yhat(1:(idx(1)-1)) = [];
   tvals(1:(idx(1)-1))= []; %#ok<NASGU>
   tvals = linspace(0,numel(xhat)-1,numel(xhat))'; %tvals-tvals(1);
+  xhat0 = (xhat - xhat(1))*500;
+  yhat0 = (yhat - yhat(1))*500;
 else
   load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
   %idx  = ceil( rand(1,1) * length( plane ) );
-  idx  = 3413; % 3413 is nice and straight, 1 bend
+  idxf  = 3413; % 3413 is nice and straight, 1 bend
   idx1 = 10;
   % index 1815 is crazy !
-  %idx  = 1815
-  %idx = 3328  %  3328 is moderate
-  plane_t = plane(idx);
+  %idxf  = 1815
+  %idxf = 3328  %  3328 is moderate
+  plane_t = plane(idxf);
   [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t );
   xhat0 = [xpRs - xpRs(1)];
   yhat0 = [ypRs - ypRs(1)];
@@ -58,7 +60,12 @@ plot( xhat0, yhat0, '-');
 
 N = npts;
 A=eye(N)-diag(ones(N-1,1),1);
+B = (A^-1)';
+bUseIntegrator = true;
 A=A(1:end-1,1:end);
+B2 = B*B;
+B=B(1:end-1,1:end);
+B2=B2(1:end-1,1:end);
 dt=12/60;
 D=A(1:end-1,1:end-1);
 
@@ -69,13 +76,12 @@ cvx_begin
         
         subject to
         ones(1,N)*(Ex.^2) + ones(1,N)*(Ey.^2) <= 100
+        
         A*vx+dt*ax == 0
         A*vy+dt*ay == 0
         A*x+dt*vx(1:N-1)+(dt^2)/2*ax == 0
         A*y+dt*vy(1:N-1)+(dt^2)/2*ay == 0
-
-        %vx(1) == vxnom;
-        %vy(1) == vy0;
+                       
         y(1)  == yhat0(1);
         y(N)  == yhat0(N);
         x(1)  == xhat0(1);
@@ -91,5 +97,5 @@ legend('meas.','recons.'); hold off;
 vnorm    = sqrt( vy.^2 + vx.^2 )+1e-99;
 heading1 = 180/pi * (-atan2( vy(:)./vnorm, vx(:)./vnorm ));
 sfigure(2); clf; hold on; plot( heading1, 'r.','LineWidth',2); 
-title(['heading for flight # ' num2str( idx )]);
+%title(['heading for flight # ' num2str( idxf )]);
 hold off
