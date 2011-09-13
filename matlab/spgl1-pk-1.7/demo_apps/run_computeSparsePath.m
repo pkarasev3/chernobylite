@@ -28,14 +28,17 @@ else
   idx  = 3413; % 3413 is nice and straight, 1 bend
   idx1 = 10;
   % index 1815 is crazy !
+  %idx  = 1815
   %idx = 3328  %  3328 is moderate
   plane_t = plane(idx);
   [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t );
   xhat0 = [xpRs - xpRs(1)];
   yhat0 = [ypRs - ypRs(1)];
   
-  xhat_predict = cumtrapz( (xhat0(end)-xhat0(1))/numel(xhat0) * ones(size(xhat0)));
-  yhat_predict = cumtrapz( (yhat0(end)-yhat0(1))/numel(yhat0) * ones(size(yhat0)));
+  vxnom = (xhat0(end)-xhat0(1))/(numel(xhat0)-1);
+  vynom = (yhat0(end)-yhat0(1))/(numel(yhat0)-1);
+  xhat_predict = [0; cumsum( vxnom * ones((numel(yhat0)-1),1) ) ] ;
+  yhat_predict = [0; cumsum( vynom * ones((numel(yhat0)-1),1) ) ] ;
   xhat  = xhat0 - xhat_predict;
   yhat  = yhat0 - yhat_predict;
   
@@ -47,13 +50,17 @@ npts = numel(xhat);
 tvals= linspace(0,npts-1,npts)';
 
 Kgroups = npts;
+v0 = [vxnom; vynom];
 [D b group tau_cen H] = setup_matrices( xhat, yhat, tvals, Kgroups);
+
+
+foo = D \ b;
 
 opts = spgSetParms();
 opts.verbosity  = 2;
-opts.iterations = 10000;
+opts.iterations = 30000;
 opts.iter_skip  = 60;
-sval           = 1.5e-1 * norm(b);
+sval           = 1.25 * norm(D * foo - b);
 [X,R,G,INFO]   = spg_group(D,b,group,sval,opts);
 disp(INFO);
 
@@ -63,14 +70,16 @@ sfigure(3);
 plot( L1_x,'b-.'); hold on; plot( L1_y,'r--');
 
 accel_xy = [L1_x(:)'; L1_y(:)'];
-x_recons = [0; H * L1_x];
-y_recons = [0; H * L1_y];
+x_recons = cumsum( cumsum( L1_x ) + vxnom ); 
+y_recons = cumsum( cumsum( L1_y ) + vynom );
 
-x_recons = x_recons + xhat_predict;
-y_recons = y_recons + yhat_predict;
+%x_recons = x_recons + xhat_predict;
+%y_recons = y_recons + yhat_predict;
+%dy       = smooth( diff([0; y_recons]), 3 );
+%dx       = smooth( diff([0; x_recons]), 3 );
+dy = diff( y_recons ); dy = [dy(1); dy ];
+dx = diff( x_recons ); dx = [dx(1); dx ];
 
-dy       = smooth( diff([0; y_recons]), 3 );
-dx       = smooth( diff([0; x_recons]), 3 );
 vnorm    = sqrt( dy.^2 + dx.^2 )+1e-99;
 heading0 = 180/pi * (atan2( dy(:)./vnorm, dx(:)./vnorm ));
 heading  = [dx(:)'; dy(:)' ] ./ [ vnorm' ; vnorm' ];
@@ -89,12 +98,12 @@ sfigure(2); clf; hold on; plot( heading0 ); legend('heading (deg)'); hold off;
 %local_max_x = ( abs(peaks_x) > 0.1*max( abs(peaks_x) ) );
 %local_max_y = ( abs(peaks_y) > 0.1*max( abs(peaks_y) ) );
 
-[maxtabx, mintabx]=peakdet((smooth(L1_x,11)), 1e-10 );
-[maxtaby, mintaby]=peakdet((smooth(L1_y,11)), 1e-10 );
-local_max_x = 0*xhat; local_max_x( maxtabx(:,1) ) = 1;
-local_max_y = 0*yhat; local_max_y( maxtaby(:,1) ) = 1;
-local_min_x = 0*xhat; local_min_x( mintabx(:,1) ) = 1;
-local_min_y = 0*yhat; local_min_y( mintaby(:,1) ) = 1;
+% [maxtabx, mintabx]=peakdet((smooth(L1_x,11)), 1e-10 );
+% [maxtaby, mintaby]=peakdet((smooth(L1_y,11)), 1e-10 );
+% local_max_x = 0*xhat; local_max_x( maxtabx(:,1) ) = 1;
+% local_max_y = 0*yhat; local_max_y( maxtaby(:,1) ) = 1;
+% local_min_x = 0*xhat; local_min_x( mintabx(:,1) ) = 1;
+% local_min_y = 0*yhat; local_min_y( mintaby(:,1) ) = 1;
 
 sfigure(1); clf; hold on;
 plot( xhat0, yhat0, '-');
