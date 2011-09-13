@@ -69,13 +69,18 @@ B2=B2(1:end-1,1:end);
 dt=12/60;
 D=A(1:end-1,1:end-1);
 
+max_err_y = 0.15 * norm(yhat0)
+max_err_x = 0.15 * norm(xhat0)
+
 cvx_begin
         variables  ax(N-1) ay(N-1) vx(N) vy(N) Ex(N) Ey(N) x(N) y(N)
     
-        minimize(norm(ax,1)+norm(ay,1))
+        minimize(norm(ax+ay,1)+norm(ax-ay,1))   % group sparse
+        %minimize(norm(ay,1)+norm(ax,1))
         
         subject to
-        ones(1,N)*(Ex.^2) + ones(1,N)*(Ey.^2) <= 100
+        ones(1,N)*(Ey.^2) <= max_err_y
+        ones(1,N)*(Ex.^2) <= max_err_x
         
         A*vx+dt*ax == 0
         A*vy+dt*ay == 0
@@ -93,9 +98,10 @@ cvx_end
 
 sfigure(1); hold on; plot( x, y, 'g--'); hold off;
 legend('meas.','recons.'); hold off;
-
+    ylabel('Rotated Y Position [NM]')
+            xlabel('Rotated X Position [NM]')
 vnorm    = sqrt( vy.^2 + vx.^2 )+1e-99;
 heading1 = 180/pi * (-atan2( vy(:)./vnorm, vx(:)./vnorm ));
-sfigure(2); clf; hold on; plot( heading1, 'r.','LineWidth',2); 
+sfigure(2); clf; hold on; plot( heading1, 'r.','LineWidth',2);       ylabel(sprintf('Heading\n[degrees]'))
 %title(['heading for flight # ' num2str( idxf )]);
 hold off
