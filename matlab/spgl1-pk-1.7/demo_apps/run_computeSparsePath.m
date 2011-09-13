@@ -2,6 +2,8 @@ spgl1_path = genpath('..');
 addpath(spgl1_path);
 addpath('../../util/');
 addpath('../../display_helpers/');
+cvxpath = genpath('~/source/cvx');
+addpath(cvxpath);
 
 %filename = 'pk_to_starbux_loop_raw_sensor_data.txt';
 filename = 'starbux_to_pk_raw_sensor_data.txt';
