@@ -58,7 +58,8 @@ sfigure(1); clf; hold on;
 plot( xhat0, yhat0, '-');
 
 
-N = npts;
+N = npts * 2;
+oversamp = N / npts;
 A=eye(N)-diag(ones(N-1,1),1);
 B = (A^-1)';
 bUseIntegrator = true;
@@ -66,42 +67,55 @@ A=A(1:end-1,1:end);
 B2 = B*B;
 B=B(1:end-1,1:end);
 B2=B2(1:end-1,1:end);
-dt=12/60;
+dt=12/60 * npts / N;
 D=A(1:end-1,1:end-1);
 
 max_err_y = 0.15 * norm(yhat0)
 max_err_x = 0.15 * norm(xhat0)
-
+e_tol     = 1e-1 * min( [ max_err_x, max_err_y ] )
+A = sparse(A);
+H = zeros(npts,N);
+for k = 1:npts
+  H(k, oversamp*(k-1) + 1 ) = 1;
+end
+H = sparse(H);
 cvx_begin
-        variables  ax(N-1) ay(N-1) vx(N) vy(N) Ex(N) Ey(N) x(N) y(N)
+        variables  ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
     
         minimize(norm(ax+ay,1)+norm(ax-ay,1))   % group sparse
         %minimize(norm(ay,1)+norm(ax,1))
         
         subject to
-        ones(1,N)*(Ey.^2) <= max_err_y
-        ones(1,N)*(Ex.^2) <= max_err_x
+        ones(1,npts)*(Ey.^2) <= max_err_y
+        ones(1,npts)*(Ex.^2) <= max_err_x
+        %norm(ex,2) + norm(ey,2) <= e_tol
+         
         
-        A*vx+dt*ax == 0
-        A*vy+dt*ay == 0
-        A*x+dt*vx(1:N-1)+(dt^2)/2*ax == 0
-        A*y+dt*vy(1:N-1)+(dt^2)/2*ay == 0
+        A*vx+dt*(ax) == 0
+        A*vy+dt*(ay) == 0
+        A*x+dt*vx(1:N-1)+(dt^2)/2*(ax) == 0
+        A*y+dt*vy(1:N-1)+(dt^2)/2*(ay) == 0
                        
         y(1)  == yhat0(1);
-        y(N)  == yhat0(N);
+        y(N)  == yhat0(npts);
         x(1)  == xhat0(1);
-        x(N)  == xhat0(N);
+        x(N)  == xhat0(npts);
         
-        Ex == xhat0 - x
-        Ey == yhat0 - y
+        Ex == xhat0 - H * x
+        Ey == yhat0 - H * y
 cvx_end
 
-sfigure(1); hold on; plot( x, y, 'g--'); hold off;
+x_  = H*x;
+y_  = H*y;
+vx_ = H*vx;
+vy_ = H*vy;
+
+sfigure(1); hold on; plot( x_, y_, 'g--'); hold off;
 legend('meas.','recons.'); hold off;
     ylabel('Rotated Y Position [NM]')
             xlabel('Rotated X Position [NM]')
-vnorm    = sqrt( vy.^2 + vx.^2 )+1e-99;
-heading1 = 180/pi * (-atan2( vy(:)./vnorm, vx(:)./vnorm ));
+vnorm    = sqrt( vy_.^2 + vx_.^2 )+1e-99;
+heading1 = 180/pi * (-atan2( vy_(:)./vnorm, vx_(:)./vnorm ));
 sfigure(2); clf; hold on; plot( heading1, 'r.','LineWidth',2);       ylabel(sprintf('Heading\n[degrees]'))
 %title(['heading for flight # ' num2str( idxf )]);
 hold off
