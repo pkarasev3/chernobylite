@@ -1,6 +1,6 @@
 npts    = 100;
 
-e_sigma = 10e-1;
+e_sigma = 20e-1;
 u = randn(1,1);
 v = randn(1,1);
 normuv = sqrt( u^2 + v^2 );
@@ -27,7 +27,7 @@ integrator_mtrx = gallery('triw',npts,1,npts)';
 ax = zeros(npts,1);
 ay = zeros(npts,1);
 delta_uv_prv = [0;0];
-num_turns = (randn(1,1) > 0 ) * (-1)  + (randn(1,1) > 0 ) * (-1) +  4
+num_turns = (randn(1,1) > 0 ) * (-1)  +  4
 for k = 2:npts
   
   lambda = 1;
@@ -39,7 +39,7 @@ for k = 2:npts
     delta_uv=zeros(2,1);
     
     % enforce a minimum angle turn
-    while( norm(delta_uv)<5e-2 || abs( delta_uv'*delta_uv_prv ) > 0.3 )
+    while( norm(delta_uv)<1e-1 || abs( delta_uv'*delta_uv_prv ) > 0.4 )
       delta_uv = randn(2,1); 
       delta_uv = delta_uv / norm(delta_uv);
     end
@@ -50,8 +50,8 @@ for k = 2:npts
   
 end
 
-ax     = upsample(ax,5);
-ay     = upsample(ay,5);
+ax     = smooth(upsample(ax,5),3);
+ay     = smooth(upsample(ay,5),3);
 
 npts   = numel(ax);
 integrator_mtrx = gallery('triw',npts,1,npts)';
@@ -67,6 +67,9 @@ H     = integrator_mtrx*integrator_mtrx;
 xhatT = H * (ax ); assert( norm(xhatT - xhat ) < 1e-1 );
 yhatT = H * (ay ); assert( norm(yhatT - yhat ) < 1e-1 );
 
+xhatT = downsample(xhatT,5);
+yhatT = downsample(yhatT,5);
+
 idx0  = find( xhatT == 0 );
 xhatT(idx0(1:end-1)) = [];
 yhatT(idx0(1:end-1)) = [];
@@ -81,7 +84,7 @@ yhat_obs = yhat_noisy;
 
 sfigure(1); clf; hold on;
 plot( xhat, yhat, '-');   hold on;
-for k = 1:10:npts
+for k = 1:floor((npts/20)):npts
   
   cval = [1.0-k/npts, abs(0.5-k/npts), k/npts];
   plot( xhat_obs(k), yhat_obs(k), '.','color',cval);  
@@ -118,10 +121,13 @@ H = sparse(H);
 
 ell_zero_norm = 100;
 ell_zero_max  = 5;
-ell_zero_min  = 2;
-max_iters     = 10;
+ell_zero_min  = 1;
+max_iters     = 20;
 iter          = 0;
-thresh_sigma = 0.05;
+thresh_sigma  = 0.05;
+
+% differential tolerance
+dTol          = 1e-1 * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
 
 while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter < max_iters)
 
@@ -136,19 +142,26 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
   max_err_x   = thresh_sigma * norm(xhat0)
 
   cvx_begin
-          variables  ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
+          variables  Ax(N-1) Ay(N-1) ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
 
-          minimize(norm(ax+ay,1)+norm(ax-ay,1) )   % group sparse
+          %minimize( exp( norm(ax+ay,1)+norm(ax-ay,1) ) )   % group sparse
+          minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )   % group sparse
           %minimize(norm(ay,1)+norm(ax,1))
 
           subject to
           ones(1,npts)*(Ey.^2) <= max_err_y
           ones(1,npts)*(Ex.^2) <= max_err_x  
 
+          % Extra 'slack' goes into velocities
           A*vx+dt*(ax) == 0
           A*vy+dt*(ay) == 0
-          A*x+dt*vx(1:N-1)+(dt^2)/2*(ax) == 0
-          A*y+dt*vy(1:N-1)+(dt^2)/2*(ay) == 0
+          
+          % Error in 2nd order taylor series
+          Ax == A*x+dt*vx(1:N-1)+(dt^2)/2*(ax)
+          Ay == A*y+dt*vy(1:N-1)+(dt^2)/2*(ay) 
+          norm(Ay,inf) <= dTol
+          norm(Ax,inf) <= dTol
+                    
 
           y(1)  == yhat0(1);
           y(N)  == yhat0(npts);
@@ -162,6 +175,8 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
   ell_zero_norm = sum( abs(ax)+abs(ay) >5e-2 )
 
 end
+
+final_differential_error_max = norm(Ay,inf) + norm(Ax,inf)
 
 x_  = H*x;
 y_  = H*y;
