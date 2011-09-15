@@ -1,6 +1,6 @@
 npts    = 200;
 
-e_sigma = 20e-1;
+e_sigma = 100e-1;
 u = randn(1,1);
 v = randn(1,1);
 normuv = sqrt( u^2 + v^2 );
@@ -31,9 +31,9 @@ num_turns = (randn(1,1) > 0 ) * (-1)  +  4
 for k = 2:npts
   
   lambda = 1;
-  sum2switch = sum2switch + poissrnd(lambda,1,1);
+  sum2switch = sum2switch + 1.25*poissrnd(lambda,1,1);
   
-  if( sum2switch > npts/num_turns )
+  if( (k < npts*0.8) && sum2switch > npts/num_turns )
     idx_switch = [idx_switch, k-1]; %#ok<AGROW>
     sum2switch = 0;
     delta_uv=zeros(2,1);
@@ -81,6 +81,7 @@ yhat_noisy = imfilter(yhatT + e_sigma * randn(size(xhatT)),h,'replicate');
 xhat_obs = xhat_noisy;
 yhat_obs = yhat_noisy;
 
+clear integrator_mtrx
 
 sfigure(1); clf; hold on;
 plot( xhat, yhat, '-');   hold on;
@@ -120,14 +121,14 @@ H = sparse(H);
 
 
 ell_zero_norm = 100;
-ell_zero_max  = 5*oversamp;
+ell_zero_max  = 6*oversamp;
 ell_zero_min  = 1*oversamp;
 max_iters     = 20;
 iter          = 0;
-thresh_sigma  = 0.05;
+thresh_sigma  = 0.5;
 
 % differential tolerance
-dTol          = 1e-2 * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
+dTol          = 2*dt * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
 
 while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter < max_iters)
 
@@ -144,8 +145,10 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
   cvx_begin
           variables  Ax(N-1) Ay(N-1) ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
 
-          %minimize( exp( norm(ax+ay,1)+norm(ax-ay,1) ) )   % group sparse
-          minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )   % group sparse
+          % group sparse L1/L_infty
+          minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )  
+          
+        
           %minimize(norm(ay,1)+norm(ax,1))
 
           subject to
@@ -159,8 +162,9 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           % Error in 2nd order taylor series
           0 == A*x+dt*vx(1:N-1)+(dt^2)/2*(ax)
           0 == A*y+dt*vy(1:N-1)+(dt^2)/2*(ay) 
-          norm(Ay,inf) <= dTol
-          norm(Ax,inf) <= dTol
+          
+          norm(Ay,2) <= dTol
+          norm(Ax,2) <= dTol
                     
 
           y(1)  == yhat0(1);
@@ -176,12 +180,12 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
 
 end
 
-final_differential_error_max = norm(Ay,inf) + norm(Ax,inf)
+final_differential_error_max = norm(Ay,2) + norm(Ax,2)
 
 x_  = H*x;
 y_  = H*y;
-vx_ = H*[vx(1);vx(1)+cumsum(ax*dt)];
-vy_ = H*[vy(1);vy(1)+cumsum(ay*dt)];
+vx_ = smooth(H*[vx(1);vx(1)+cumsum(ax*dt)],oversamp);
+vy_ = smooth(H*[vy(1);vy(1)+cumsum(ay*dt)],oversamp);
 
 sfigure(1); hold on; plot( x_, y_, 'g--','LineWidth',2); hold off;
 legend('meas.','recons.'); hold off;
