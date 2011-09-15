@@ -1,4 +1,4 @@
-npts    = 100;
+npts    = 200;
 
 e_sigma = 20e-1;
 u = randn(1,1);
@@ -6,7 +6,7 @@ v = randn(1,1);
 normuv = sqrt( u^2 + v^2 );
 u = u / normuv;
 v = v / normuv;
-sum2switch = 0;
+sum2switch = 20;
 idx_switch = [];
 
 % TODO: for a fixed set of accelerations,
@@ -71,8 +71,8 @@ xhatT = downsample(xhatT,5);
 yhatT = downsample(yhatT,5);
 
 idx0  = find( xhatT == 0 );
-xhatT(idx0(1:end-1)) = [];
-yhatT(idx0(1:end-1)) = [];
+xhatT(idx0) = []; 
+yhatT(idx0) = [];
 npts = numel(xhatT);
 
 h          = fspecial('gaussian',[3 1],1.0);
@@ -97,8 +97,8 @@ end
 sfigure(1); axis equal; hold off;
 
 
-xhat0 = smooth(xhat_obs,npts/20);
-yhat0 = smooth(yhat_obs,npts/20);
+xhat0 = smooth(xhat_obs,npts/20);  xhat0 = xhat0 - xhat0(1);
+yhat0 = smooth(yhat_obs,npts/20);  yhat0 = yhat0 - yhat0(1);
 
 N = npts ;
 oversamp = N / npts;
@@ -120,14 +120,14 @@ H = sparse(H);
 
 
 ell_zero_norm = 100;
-ell_zero_max  = 5;
-ell_zero_min  = 1;
+ell_zero_max  = 5*oversamp;
+ell_zero_min  = 1*oversamp;
 max_iters     = 20;
 iter          = 0;
 thresh_sigma  = 0.05;
 
 % differential tolerance
-dTol          = 1e-1 * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
+dTol          = 1e-2 * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
 
 while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter < max_iters)
 
@@ -153,12 +153,12 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           ones(1,npts)*(Ex.^2) <= max_err_x  
 
           % Extra 'slack' goes into velocities
-          A*vx+dt*(ax) == 0
-          A*vy+dt*(ay) == 0
+          Ax == A*vx+dt*(ax)
+          Ay == A*vy+dt*(ay)
           
           % Error in 2nd order taylor series
-          Ax == A*x+dt*vx(1:N-1)+(dt^2)/2*(ax)
-          Ay == A*y+dt*vy(1:N-1)+(dt^2)/2*(ay) 
+          0 == A*x+dt*vx(1:N-1)+(dt^2)/2*(ax)
+          0 == A*y+dt*vy(1:N-1)+(dt^2)/2*(ay) 
           norm(Ay,inf) <= dTol
           norm(Ax,inf) <= dTol
                     
@@ -180,8 +180,8 @@ final_differential_error_max = norm(Ay,inf) + norm(Ax,inf)
 
 x_  = H*x;
 y_  = H*y;
-vx_ = H*vx;
-vy_ = H*vy;
+vx_ = H*[vx(1);vx(1)+cumsum(ax*dt)];
+vy_ = H*[vy(1);vy(1)+cumsum(ay*dt)];
 
 sfigure(1); hold on; plot( x_, y_, 'g--','LineWidth',2); hold off;
 legend('meas.','recons.'); hold off;
