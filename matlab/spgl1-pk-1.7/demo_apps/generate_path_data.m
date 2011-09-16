@@ -1,3 +1,6 @@
+cvx_path = genpath('/u4/home/pkarasev3/source/cvx/');
+addpath(cvx_path);
+
 npts    = 200;
 
 e_sigma = 100e-1;
@@ -31,7 +34,7 @@ num_turns = (randn(1,1) > 0 ) * (-1)  +  4
 for k = 2:npts
   
   lambda = 1;
-  sum2switch = sum2switch + 1.25*poissrnd(lambda,1,1);
+  sum2switch = sum2switch + 1*poissrnd(lambda,1,1);
   
   if( (k < npts*0.8) && sum2switch > npts/num_turns )
     idx_switch = [idx_switch, k-1]; %#ok<AGROW>
@@ -67,8 +70,8 @@ H     = integrator_mtrx*integrator_mtrx;
 xhatT = H * (ax ); assert( norm(xhatT - xhat ) < 1e-1 );
 yhatT = H * (ay ); assert( norm(yhatT - yhat ) < 1e-1 );
 
-xhatT = downsample(xhatT,5);
-yhatT = downsample(yhatT,5);
+xhatT = downsample(xhatT,2);
+yhatT = downsample(yhatT,2);
 
 idx0  = find( xhatT == 0 );
 xhatT(idx0) = []; 
@@ -121,14 +124,14 @@ H = sparse(H);
 
 
 ell_zero_norm = 100;
-ell_zero_max  = 6*oversamp;
+ell_zero_max  = 8*oversamp;
 ell_zero_min  = 1*oversamp;
 max_iters     = 20;
 iter          = 0;
 thresh_sigma  = 0.5;
 
 % differential tolerance
-dTol          = 2*dt * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
+dTol          = 0.1*dt * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
 
 while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter < max_iters)
 
@@ -167,11 +170,11 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           norm(Ax,2) <= dTol
                     
 
-          y(1)  == yhat0(1);
-          y(N)  == yhat0(npts);
-          x(1)  == xhat0(1);
-          x(N)  == xhat0(npts);
-
+          abs( y(1)  - yhat0(1) ) <= 3*e_sigma
+          abs( y(N)  - yhat0(N) ) <= 3*e_sigma
+          abs( x(1)  - xhat0(1) ) <= 3*e_sigma
+          abs( x(N)  - xhat0(N) ) <= 3*e_sigma
+          
           Ex == xhat0 - H * x
           Ey == yhat0 - H * y
   cvx_end
@@ -184,8 +187,8 @@ final_differential_error_max = norm(Ay,2) + norm(Ax,2)
 
 x_  = H*x;
 y_  = H*y;
-vx_ = smooth(H*[vx(1);vx(1)+cumsum(ax*dt)],oversamp);
-vy_ = smooth(H*[vy(1);vy(1)+cumsum(ay*dt)],oversamp);
+vx_ = smooth(H*[vx(1);vx(1)+cumsum(ax*dt)],3);
+vy_ = smooth(H*[vy(1);vy(1)+cumsum(ay*dt)],3);
 
 sfigure(1); hold on; plot( x_, y_, 'g--','LineWidth',2); hold off;
 legend('meas.','recons.'); hold off;
