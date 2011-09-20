@@ -30,13 +30,14 @@ integrator_mtrx = gallery('triw',npts,1,npts)';
 ax = zeros(npts,1);
 ay = zeros(npts,1);
 delta_uv_prv = [0;0];
-num_turns = (randn(1,1) > 0 ) * (-1)  +  4
+%num_turns = (randn(1,1) > 0 ) * (-1)  + (randn(1,1) > 0 ) * (-1) + 5
+num_turns = 3
 for k = 2:npts
   
   lambda = 1;
   sum2switch = sum2switch + 1*poissrnd(lambda,1,1);
   
-  if( (k < npts*0.8) && sum2switch > npts/num_turns )
+  if( (k < npts*0.95) && sum2switch > npts/num_turns )
     idx_switch = [idx_switch, k-1]; %#ok<AGROW>
     sum2switch = 0;
     delta_uv=zeros(2,1);
@@ -70,9 +71,6 @@ H     = integrator_mtrx*integrator_mtrx;
 xhatT = H * (ax ); assert( norm(xhatT - xhat ) < 1e-1 );
 yhatT = H * (ay ); assert( norm(yhatT - yhat ) < 1e-1 );
 
-xhatT = downsample(xhatT,2);
-yhatT = downsample(yhatT,2);
-
 idx0  = find( xhatT == 0 );
 xhatT(idx0) = []; 
 yhatT(idx0) = [];
@@ -83,6 +81,10 @@ xhat_noisy = imfilter(xhatT + e_sigma * randn(size(xhatT)),h,'replicate');
 yhat_noisy = imfilter(yhatT + e_sigma * randn(size(xhatT)),h,'replicate');
 xhat_obs = xhat_noisy;
 yhat_obs = yhat_noisy;
+
+xhat_obs = downsample(xhat_obs,8);
+yhat_obs = downsample(yhat_obs,8);
+npts     = numel(xhat_obs);
 
 clear integrator_mtrx
 
@@ -104,7 +106,7 @@ sfigure(1); axis equal; hold off;
 xhat0 = smooth(xhat_obs,npts/20);  xhat0 = xhat0 - xhat0(1);
 yhat0 = smooth(yhat_obs,npts/20);  yhat0 = yhat0 - yhat0(1);
 
-N = npts ;
+N = 1 * npts ;
 oversamp = N / npts;
 A=eye(N)-diag(ones(N-1,1),1);
 B = (A^-1)';
@@ -124,8 +126,8 @@ H = sparse(H);
 
 
 ell_zero_norm = 100;
-ell_zero_max  = 8*oversamp;
-ell_zero_min  = 1*oversamp;
+ell_zero_max  = 8;
+ell_zero_min  = 1;
 max_iters     = 20;
 iter          = 0;
 thresh_sigma  = 0.5;
@@ -170,10 +172,10 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           norm(Ax,2) <= dTol
                     
 
-          abs( y(1)  - yhat0(1) ) <= 3*e_sigma
-          abs( y(N)  - yhat0(N) ) <= 3*e_sigma
-          abs( x(1)  - xhat0(1) ) <= 3*e_sigma
-          abs( x(N)  - xhat0(N) ) <= 3*e_sigma
+          abs( y(1)  - yhat0(1) ) <= e_sigma
+          abs( y(N)  - yhat0(npts) ) <= e_sigma
+          abs( x(1)  - xhat0(1) ) <= e_sigma
+          abs( x(N)  - xhat0(npts) ) <= e_sigma
           
           Ex == xhat0 - H * x
           Ey == yhat0 - H * y
@@ -185,20 +187,38 @@ end
 
 final_differential_error_max = norm(Ay,2) + norm(Ax,2)
 
-x_  = H*x;
-y_  = H*y;
-vx_ = smooth(H*[vx(1);vx(1)+cumsum(ax*dt)],3);
-vy_ = smooth(H*[vy(1);vy(1)+cumsum(ay*dt)],3);
+x_  = x;
+y_  = y;
+vx_ = smooth([vx(1);vx(1)+cumsum(ax*dt)]);
+vy_ = smooth([vy(1);vy(1)+cumsum(ay*dt)]);
 
-sfigure(1); hold on; plot( x_, y_, 'g--','LineWidth',2); hold off;
-legend('meas.','recons.'); hold off;
-    ylabel('Rotated Y Position [NM]')
-            xlabel('Rotated X Position [NM]')
+tt  = dt * (1:N);
+sfigure(1); clf; hold on; 
+plot( xhat0(1:1:end), yhat0(1:1:end), 'r.','LineWidth',3);   hold on;
+plot( x_, y_, 'b-','LineWidth',2); axis equal; hold off
+legend('measured data points','sparse-input path estimate'); hold off;
+ylabel('Y Position [m]','FontSize',14);            xlabel('X Position [m]','FontSize',14);
 vnorm    = sqrt( vy_.^2 + vx_.^2 )+1e-99;
 heading1 = 180/pi * (atan2( vy_(:)./vnorm, vx_(:)./vnorm ));
-sfigure(2); clf; hold on; plot( heading1, 'r.','LineWidth',2);       ylabel(sprintf('Heading\n[degrees]'))
+
+sfigure(2); clf; hold on; plot( tt,heading1, 'r.','LineWidth',2);    
+axis([0 tt(end) -180 180 ] );
+ylabel('Heading [degrees]','FontSize',14); 
+xlabel('time [min]','FontSize',14);
 hold off
 
+sfigure(3); clf; hold on; 
+idx_nz = find( abs(ax)+abs(ay) > 1e-1 );
+plot( tt(idx_nz),ax(idx_nz), 'bo','LineWidth',3);    
+plot( tt(idx_nz),ay(idx_nz), 'rx','LineWidth',2);
+idx_z = setdiff(1:(N-1),idx_nz);
+plot( [0,tt(idx_z)],[0;ax(idx_z)], 'bo','LineWidth',1/2);    
+plot( [0,tt(idx_z)],[0;ay(idx_z)], 'rx','LineWidth',1/2);
+ylabel('Acceleration [m/min^2]','FontSize',14); 
+xlabel('time [min]','FontSize',14);
+legend('X-acceleration','Y-acceleration');
+axis([0, tt(end), min( [ax ; ay] )*1.1, max( [ax;ay] )*1.1 ]);
+hold off
 
 
 
