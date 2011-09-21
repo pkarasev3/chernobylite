@@ -54,26 +54,30 @@ for k = 2:npts
   
 end
 
-ax     = smooth(upsample(ax,5),3);
-ay     = smooth(upsample(ay,5),3);
+ax0     = smooth(upsample(ax,5),3);
+ay0     = smooth(upsample(ay,5),3);
 
-npts   = numel(ax);
+npts   = numel(ax0);
 integrator_mtrx = gallery('triw',npts,1,npts)';
 
 
-vx     = integrator_mtrx * ax;
-vy     = integrator_mtrx * ay;
-xhat   = integrator_mtrx * vx;
-yhat   = integrator_mtrx * vy;
+vx0     = integrator_mtrx * ax0;
+vy0     = integrator_mtrx * ay0;
+xhat   = integrator_mtrx * vx0;
+yhat   = integrator_mtrx * vy0;
 
 % The 'realistic' observed values
 H     = integrator_mtrx*integrator_mtrx;
-xhatT = H * (ax ); assert( norm(xhatT - xhat ) < 1e-1 );
-yhatT = H * (ay ); assert( norm(yhatT - yhat ) < 1e-1 );
+xhatT = H * (ax0 ); assert( norm(xhatT - xhat ) < 1e-1 );
+yhatT = H * (ay0 ); assert( norm(yhatT - yhat ) < 1e-1 );
 
-idx0  = find( xhatT == 0 );
+idx0  = find( xhatT == 0 ); 
 xhatT(idx0) = []; 
 yhatT(idx0) = [];
+ax0(idx0)   = []; ax0(1:10) = 0;
+ay0(idx0)   = []; ay0(1:10) = 0;
+vx0(idx0)   = [];
+vy0(idx0)   = [];
 npts = numel(xhatT);
 
 h          = fspecial('gaussian',[3 1],1.0);
@@ -82,8 +86,9 @@ yhat_noisy = imfilter(yhatT + e_sigma * randn(size(xhatT)),h,'replicate');
 xhat_obs = xhat_noisy;
 yhat_obs = yhat_noisy;
 
-xhat_obs = downsample(xhat_obs,8);
-yhat_obs = downsample(yhat_obs,8);
+under_samp_ratio = 8;
+xhat_obs = downsample(xhat_obs,under_samp_ratio);
+yhat_obs = downsample(yhat_obs,under_samp_ratio);
 npts     = numel(xhat_obs);
 
 clear integrator_mtrx
@@ -192,7 +197,9 @@ y_  = y;
 vx_ = smooth([vx(1);vx(1)+cumsum(ax*dt)]);
 vy_ = smooth([vy(1);vy(1)+cumsum(ay*dt)]);
 
-tt  = dt * (1:N);
+tt   = dt * (1:N);
+tt0  = linspace(tt(1),tt(end),numel(ax0));
+
 sfigure(1); clf; hold on; 
 plot( xhat0(1:1:end), yhat0(1:1:end), 'r.','LineWidth',3);   hold on;
 plot( x_, y_, 'b-','LineWidth',2); axis equal; hold off
@@ -209,15 +216,19 @@ hold off
 
 sfigure(3); clf; hold on; 
 idx_nz = find( abs(ax)+abs(ay) > 1e-1 );
-plot( tt(idx_nz),ax(idx_nz), 'bo','LineWidth',3);    
-plot( tt(idx_nz),ay(idx_nz), 'rx','LineWidth',2);
 idx_z = setdiff(1:(N-1),idx_nz);
-plot( [0,tt(idx_z)],[0;ax(idx_z)], 'bo','LineWidth',1/2);    
-plot( [0,tt(idx_z)],[0;ay(idx_z)], 'rx','LineWidth',1/2);
+plot( [tt],[0;ax], 'b--','LineWidth',1);    
+plot( [tt],[0;ay], 'r-.','LineWidth',1);
+plot( tt0,ax0 * under_samp_ratio,'c*','LineWidth',1);
+plot( tt0,ay0 * under_samp_ratio,'m*','LineWidth',1);
 ylabel('Acceleration [m/min^2]','FontSize',14); 
 xlabel('time [min]','FontSize',14);
 legend('X-acceleration','Y-acceleration');
-axis([0, tt(end), min( [ax ; ay] )*1.1, max( [ax;ay] )*1.1 ]);
+ax_show = 0.5*dt^2 * ax(idx_nz);
+ay_show = 0.5*dt^2 * ay(idx_nz);
+plot( tt(idx_nz),ax_show, 'bo','LineWidth',3);    
+plot( tt(idx_nz),0.5*dt^2 * ay(idx_nz), 'rx','LineWidth',2);
+axis([0, tt(end), min( [ax_show ; ay_show] )*1.1, max(  [ax_show ; ay_show] )*1.1 ]);
 hold off
 
 
