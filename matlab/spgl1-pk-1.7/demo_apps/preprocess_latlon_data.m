@@ -37,7 +37,7 @@ function [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t 
         yp=yp-yp(1);
         dx=xp(end)-xp(1);
         dy=yp(end)-yp(1);
-        Rang=atan2(dy,dx);
+        Rang=  atan2(dy,dx);
         R=[cos(Rang) sin(Rang);-sin(Rang) cos(Rang)];
         xy=R*[xp; yp];
         xpR=xy(1,:)';
@@ -45,8 +45,8 @@ function [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t 
     
         %------------------------------------------------------------------------
     
-        xpRs=smooth(times_rs,xpR,10,'lowess');
-        ypRs=smooth(times_rs,ypR,10,'lowess');
+        xpRs=smooth(times_rs,xpR,num_pts/40,'lowess');
+        ypRs=smooth(times_rs,ypR,num_pts/40,'lowess');
 
         cdist=cumsum((diff(xpRs).^2+diff(ypRs).^2).^.5);
         dtime=times(end)-times(1);

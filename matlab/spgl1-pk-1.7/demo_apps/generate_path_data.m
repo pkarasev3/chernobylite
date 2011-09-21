@@ -1,4 +1,4 @@
-cvx_path = genpath('/u4/home/pkarasev3/source/cvx/');
+cvx_path = genpath('~/source/cvx/');
 addpath(cvx_path);
 
 npts    = 200;
