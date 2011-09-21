@@ -1,7 +1,10 @@
 cvx_path = genpath('~/source/cvx/');
 addpath(cvx_path);
+addpath('../../display_helpers/');
+addpath('../../util/');
 
-npts    = 200;
+nturns_goal = 4;
+npts    = 300;
 
 e_sigma = 100e-1;
 u = randn(1,1);
@@ -31,7 +34,7 @@ ax = zeros(npts,1);
 ay = zeros(npts,1);
 delta_uv_prv = [0;0];
 %num_turns = (randn(1,1) > 0 ) * (-1)  + (randn(1,1) > 0 ) * (-1) + 5
-num_turns = 3
+num_turns = nturns_goal
 for k = 2:npts
   
   lambda = 1;
@@ -131,11 +134,11 @@ H = sparse(H);
 
 
 ell_zero_norm = 100;
-ell_zero_max  = 8;
+ell_zero_max  = 6;
 ell_zero_min  = 1;
 max_iters     = 20;
 iter          = 0;
-thresh_sigma  = 0.5;
+thresh_sigma  = 0.3;
 
 % differential tolerance
 dTol          = 0.1*dt * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
@@ -144,14 +147,15 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
 
   iter = iter+1;
   if( ell_zero_norm > ell_zero_max )
-    thresh_sigma = 1.2 * thresh_sigma
+    thresh_sigma = 1.1 * thresh_sigma
   else
     thresh_sigma = 0.9 * thresh_sigma
   end
 
   max_err_y   = thresh_sigma * norm(yhat0)
   max_err_x   = thresh_sigma * norm(xhat0)
-
+  fprintf('nnz = %f \n',ell_zero_norm);
+  
   cvx_begin
           variables  Ax(N-1) Ay(N-1) ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
 
@@ -177,58 +181,70 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           norm(Ax,2) <= dTol
                     
 
-          abs( y(1)  - yhat0(1) ) <= e_sigma
-          abs( y(N)  - yhat0(npts) ) <= e_sigma
-          abs( x(1)  - xhat0(1) ) <= e_sigma
-          abs( x(N)  - xhat0(npts) ) <= e_sigma
+          abs( y(1)  - yhat0(1) ) <= e_sigma*5
+          abs( y(N)  - yhat0(npts) ) <= e_sigma*5
+          abs( x(1)  - xhat0(1) ) <= e_sigma*5
+          abs( x(N)  - xhat0(npts) ) <= e_sigma*5
           
           Ex == xhat0 - H * x
           Ey == yhat0 - H * y
   cvx_end
 
-  ell_zero_norm = sum( abs(ax)+abs(ay) >5e-2 )
+  t_input_recons = find( abs(ax) + abs(ay) > 0.01 * max(abs(ax)+abs(ay)) );
+  ell_zero_norm  = numel(t_input_recons);
+  fprintf('nnz = %f \n',ell_zero_norm);
 
 end
 
-final_differential_error_max = norm(Ay,2) + norm(Ax,2)
+t_input_recons = find( abs(ax) + abs(ay) > 0.01 * max(abs(ax)+abs(ay)) );
+t_input_truth  = find( abs(ax0) + abs(ay0) > 0.01 * max(abs(ax0)+abs(ay0)) );
+final_differential_error_max = norm(Ay,2) + norm(Ax,2);
+ell_zero_norm  = numel(t_input_recons);
+fprintf('nnz = %f , ||d_x||_2 + ||d_y||_2 = %f \n',ell_zero_norm,final_differential_error_max);
+
 
 x_  = x;
 y_  = y;
-vx_ = smooth([vx(1);vx(1)+cumsum(ax*dt)]);
-vy_ = smooth([vy(1);vy(1)+cumsum(ay*dt)]);
+vx_ = medfilt1(smooth([vx(1);vx(1)+cumsum(ax*dt)],5),3);
+vy_ = medfilt1(smooth([vy(1);vy(1)+cumsum(ay*dt)],5),3);
 
 tt   = dt * (1:N);
 tt0  = linspace(tt(1),tt(end),numel(ax0));
 
 sfigure(1); clf; hold on; 
-plot( xhat0(1:1:end), yhat0(1:1:end), 'r.','LineWidth',3);   hold on;
-plot( x_, y_, 'b-','LineWidth',2); axis equal; hold off
-legend('measured data points','sparse-input path estimate'); hold off;
-ylabel('Y Position [m]','FontSize',14);            xlabel('X Position [m]','FontSize',14);
+plot( x_, y_, 'b-','LineWidth',3); %axis equal;
+plot(xhat_obs-xhat_obs(1), yhat_obs-yhat_obs(1), 'r.','LineWidth',1); 
+plot( x_(1), y_(1), 'mo','LineWidth',3,'MarkerSize',8,'MarkerFaceColor',[0 1 0]); plot( x_, y_, 'b-','LineWidth',1);
+hold off
+sh=legend('sparse-input path estimate','measured data points','initial position'); hold off;
+set(sh,'FontSize',16);
+ylabel('Y Position [m]','FontSize',16);            xlabel('X Position [m]','FontSize',16);
 vnorm    = sqrt( vy_.^2 + vx_.^2 )+1e-99;
 heading1 = 180/pi * (atan2( vy_(:)./vnorm, vx_(:)./vnorm ));
 
-sfigure(2); clf; hold on; plot( tt,heading1, 'r.','LineWidth',2);    
+sfigure(2); clf; hold on; plot( tt,heading1, 'r.','LineWidth',2);
+plot(-dt+tt0( t_input_truth ),0*tt0( t_input_truth ),'b^','LineWidth',3,'MarkerSize',12);
 axis([0 tt(end) -180 180 ] );
-ylabel('Heading [degrees]','FontSize',14); 
-xlabel('time [min]','FontSize',14);
+sh=legend('reconstructed vehicle heading','true heading change marker'); set(sh,'FontSize',16); hold off;
+ylabel('Heading [degrees]','FontSize',16); 
+xlabel('time [min]','FontSize',16);
 hold off
 
 sfigure(3); clf; hold on; 
-idx_nz = find( abs(ax)+abs(ay) > 1e-1 );
+idx_nz = find( abs(ax)+abs(ay) > 5e-2 * max( abs(ax)+abs(ay) ) );
 idx_z = setdiff(1:(N-1),idx_nz);
-plot( [tt],[0;ax], 'b--','LineWidth',1);    
-plot( [tt],[0;ay], 'r-.','LineWidth',1);
-plot( tt0,ax0 * under_samp_ratio,'c*','LineWidth',1);
-plot( tt0,ay0 * under_samp_ratio,'m*','LineWidth',1);
-ylabel('Acceleration [m/min^2]','FontSize',14); 
-xlabel('time [min]','FontSize',14);
-legend('X-acceleration','Y-acceleration');
-ax_show = 0.5*dt^2 * ax(idx_nz);
-ay_show = 0.5*dt^2 * ay(idx_nz);
-plot( tt(idx_nz),ax_show, 'bo','LineWidth',3);    
-plot( tt(idx_nz),0.5*dt^2 * ay(idx_nz), 'rx','LineWidth',2);
-axis([0, tt(end), min( [ax_show ; ay_show] )*1.1, max(  [ax_show ; ay_show] )*1.1 ]);
+plot( [tt],[0;ax], 'b-.','LineWidth',2);    
+plot( [tt],[0;ay], 'r-','LineWidth',1);
+%plot( tt0,ax0 * under_samp_ratio,'c*','LineWidth',1);
+%plot( tt0,ay0 * under_samp_ratio,'m*','LineWidth',1);
+ylabel('Acceleration [m/min^2]','FontSize',16); 
+xlabel('time [min]','FontSize',16);
+sh=legend('X-acceleration','Y-acceleration'); set(sh,'FontSize',16 );
+ax_show = ax(idx_nz); 
+ay_show = ay(idx_nz); 
+plot( tt(idx_nz+1),ax_show, 'bo','LineWidth',3);    
+plot( tt(idx_nz+1),ay_show, 'rx','LineWidth',2);
+axis([0, tt(end), min( -abs([ax_show ; ay_show] ))*1.1, max(  abs([ax_show ; ay_show] ))*1.1 ]);
 hold off
 
 
