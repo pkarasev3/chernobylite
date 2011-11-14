@@ -62,10 +62,5 @@ while( tt < 50 )
 end
 
 
-img_show = repmat(img0,[1 1 3]);
-imgr = img_show(:,:,1); imgr( abs( phi1 ) < 0.5) = 1.0;
-imgg = img_show(:,:,2); imgg( abs( phi2 ) < 0.5) = 1.0;
-img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(img_show>1)=1; img_show(img_show<0)=0;
-sfigure(1); imagesc(img_show); drawnow;
 
 
