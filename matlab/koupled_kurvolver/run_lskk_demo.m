@@ -40,7 +40,7 @@ tt = 0;
 img0 = img;
 img  = imfilter( img * 255, fspecial('gaussian',[5 5],2),'replicate');
 img  = img - mean(img(:));
-while( tt < 50 )
+while( tt < 100 )
   tt    = tt + dt;
   
   
