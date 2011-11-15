@@ -14,7 +14,7 @@
 
 
 phi = ones(100,100);
-phi(30:60,30:60) = -1;
+phi(20:80,20:80) = -1;
 phi = double((phi > 0).*(bwdist(phi < 0)-0.5) - (phi < 0).*(bwdist(phi > 0)-0.5));
 
 % Using reinit_SD on the step function instead may 
@@ -34,8 +34,11 @@ Vn = -0.2*ones(100, 100);
 dx=1;
 dy=1;
 
-figure;contour(phi,[0 0],'b');
-phi = evolve2D(phi,dx,dy,0.5,15,'ENO3',1,1,Vn,0,u,v,0,b);
-hold on; contour(phi,[0 0],'r'); hold off; axis equal;
+figure(1);
+contour(phi,[0 0],'b');
+for k = 1:10
+  phi = evolve2D(phi,dx,dy,0.5,15,'ENO3',1,1,Vn,0,u,v,0,b);
+  hold on; contour(phi,[0 0],'color',[k/10 0 1-k/10]); hold off; axis equal; drawnow;
+end
 
 

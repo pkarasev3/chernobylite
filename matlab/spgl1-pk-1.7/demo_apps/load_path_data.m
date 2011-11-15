@@ -4,11 +4,11 @@ addpath('../../display_helpers/');
 addpath('../../util/');
 load ~/source/visioncontrol/visctrl-papers/input_recovery_adan/trajectory_change_detection/flight_data/IFF_ZMP_20070521_060000_86185_high.mat
   %idx  = ceil( rand(1,1) * length( plane ) );
-  %idxf  = 3413; % 3413 is nice and straight, 1 bend
+  idxf  = 3413; % 3413 is nice and straight, 1 bend
   idx1 = 10;
   % index 1815 is crazy !
   %idxf  = 1815
-  idxf = 3328  %  3328 is moderate
+  %idxf = 3328  %  3328 is moderate
   plane_t = plane(idxf);
   [ times_rs, xpRs, ypRs, alts, v_nom] = preprocess_latlon_data( plane_t );
   
@@ -53,7 +53,7 @@ H = sparse(H);
 ell_zero_norm = 100;
 ell_zero_max  = 5;
 ell_zero_min  = 1;
-max_iters     = 20;
+max_iters     = 20; max_iters = 1;
 iter          = 0;
 thresh_sigma  = 0.05 ;
 
@@ -78,10 +78,11 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           variables  Ax(N-1) Ay(N-1) ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
 
           % group sparse L1/L_infty
-          minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )  
-          
+          %minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )   % group-sparse
+          %minimize( ( norm(ax+ay,2) + norm(ax-ay,2) ) )   % non-sparse
+          minimize( ( norm([ax;ay]) ) )
         
-          %minimize(norm(ay,1)+norm(ax,1))
+          %minimize(norm(ay,1)+norm(ax,1))  % singly-sparse
 
           subject to
           ones(1,npts)*(Ey.^2) <= max_err_y
