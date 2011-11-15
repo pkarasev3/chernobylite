@@ -20,7 +20,7 @@ phi2    = tanh(3*d2);
 
 sfigure(1); clf; 
 
-epsilon   = 0.9;
+epsilon   = 0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  1 * (z == 0) + (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
