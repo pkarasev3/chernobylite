@@ -42,18 +42,22 @@ S_phi_0 = phi./sqrt(phi.^2 + dx.^2);
 Vn_ext = feval(init_normal, S_phi_0);
 it=0;
 t=0;
-fprintf('reinit_SD %d iterations: \n', iterations);
+if( iterations > 10 ) 
+  fprintf('reinit_SD %d iterations: \n', iterations);
+end
 while(it < iterations)
 	[delta_normal, H1_abs, H2_abs] = feval(evolve_normal, phi, dx, dy, Vn_ext);
 	dt = get_dt_normal(alpha, dx, dy, H1_abs, H2_abs);
 	phi = phi + dt*(S_phi_0 - delta_normal);
 	it = it+1;
 	t = t+dt;
-  if( mod(it, round(iterations/10) ) == 0 )
+  if( iterations >= 10 && mod(it, round(iterations/10) ) == 0 )
     fprintf(' %d .. ', it );
   end
 end
 
-fprintf('\n');
+if( iterations > 10 )
+  fprintf('\n');
+end
 
 

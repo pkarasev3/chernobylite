@@ -1,6 +1,9 @@
-function setFigure(fh,pos,scalein)
+function setFigure(fh,pos,scaleinx,scaleiny)
     if( nargin < 3 )
-        scalein =1;
+        scaleinx =1;
+        scaleiny =1;
+    elseif(nargin < 4)
+        scaleiny = scaleinx;
     end
-    set(fh,'Position', [pos 400*scalein 300*scalein]);
+    set(fh,'Position', [pos 400*scaleinx 300*scaleiny]);
 end
