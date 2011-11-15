@@ -53,14 +53,14 @@ H = sparse(H);
 ell_zero_norm = 100;
 ell_zero_max  = 5;
 ell_zero_min  = 1;
-max_iters     = 20; max_iters = 1;
+max_iters     = 20;
 iter          = 0;
-thresh_sigma  = 0.05 ;
+thresh_sigma  = 0.05 * oversamp;
 
 % differential tolerance
-dTol          = 0.1*dt * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
-e_sigmax       = 0.05 * mean(abs( xhat0) );
-e_sigmay       = 0.05 * mean(abs( yhat0) );
+dTol          = oversamp * 0.1*dt * ( mean( abs( diff( xhat0 ) ) ) + mean( abs( diff( yhat0 ) ) ) );
+e_sigmax       =oversamp* 0.05 * mean(abs( xhat0) );
+e_sigmay       =oversamp* 0.05 * mean(abs( yhat0) );
 
 while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter < max_iters)
 
@@ -78,11 +78,10 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           variables  Ax(N-1) Ay(N-1) ax(N-1) ay(N-1) vx(N) vy(N) Ex(npts) Ey(npts) x(N) y(N)
 
           % group sparse L1/L_infty
-          %minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )   % group-sparse
-          %minimize( ( norm(ax+ay,2) + norm(ax-ay,2) ) )   % non-sparse
-          minimize( ( norm([ax;ay]) ) )
+          %minimize( ( norm(ax+ay,1)+norm(ax-ay,1) ) )  
+          
         
-          %minimize(norm(ay,1)+norm(ax,1))  % singly-sparse
+          minimize(norm(ay,1)+norm(ax,1))
 
           subject to
           ones(1,npts)*(Ey.^2) <= max_err_y
@@ -154,3 +153,15 @@ plot( tt(idx_nz+1),ax_show, 'bo','LineWidth',3);
 plot( tt(idx_nz+1),ay_show, 'rx','LineWidth',2);
 axis([0, tt(end), min( -abs([ax_show ; ay_show] ))*1.1, max(  abs([ax_show ; ay_show] ))*1.1 ]);
 hold off
+
+
+ylabel('net velocity (sparse input + disturbances) [NM/min]','FontSize',16); 
+xlabel('time [min]','FontSize',16);
+sh=legend('X-acceleration','Y-acceleration'); set(sh,'FontSize',16 );
+ax_show = ax(idx_nz); 
+ay_show = ay(idx_nz); 
+plot( tt(idx_nz+1),ax_show, 'bo','LineWidth',3);    
+plot( tt(idx_nz+1),ay_show, 'rx','LineWidth',2);
+axis([0, tt(end), min( -abs([ax_show ; ay_show] ))*1.1, max(  abs([ax_show ; ay_show] ))*1.1 ]);
+hold off
+
