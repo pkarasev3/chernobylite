@@ -5,7 +5,7 @@ function [data_x] = der_ENO2_minus(data, dx)
 % takes 1-D data
 % data: input data
 % dx: grid resolution
-% Note: before entering this function, data needs to be 
+% Note: before entering this function, data needs to be
 % extended by 2 at the beginning and end (values don't matter)
 %
 % Author: Baris Sumengen  sumengen@ece.ucsb.edu
@@ -29,26 +29,26 @@ D2 = (D1(2:end)-D1(1:end-1))/2;
 absD2 = abs(D2);
 
 for i=1:(length(data)-4)
-    k = i-1;
-
-    Q1p = D1(k+2); %D1k_half;
-
-    if absD2(k+1) <= absD2(k+2) %|D2k| <= |D2kp1|
-        c = D2(k+1); %D2k;
-    else
-        c = D2(k+2); %D2kp1;
-    end
-
-    % ignoring multiplication by dx since this will also cancel out
-    Q2p = c*(2*(i-k)-1);
-
-    data_x(i+2) = Q1p+Q2p;
-    data_x(i+2) = data_x(i+2)/dx;
+  k = i-1;
+  
+  Q1p = D1(k+2); %D1k_half;
+  
+  if absD2(k+1) <= absD2(k+2) %|D2k| <= |D2kp1|
+    c = D2(k+1); %D2k;
+  else
+    c = D2(k+2); %D2kp1;
+  end
+  
+  % ignoring multiplication by dx since this will also cancel out
+  Q2p = c*(2*(i-k)-1);
+  
+  data_x(i+2) = Q1p+Q2p;
+  data_x(i+2) = data_x(i+2)/dx;
 end
 
 
 
-
+end
 
 
 
