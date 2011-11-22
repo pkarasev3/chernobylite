@@ -52,6 +52,7 @@ delta_rel1 = [1];
 delta_rel2 = [1];
 delta_abs1 = [1];
 delta_abs2 = [1];
+t_all      = [0];
 relTol     = 1e-4;
 absTol     = 1e2;
 phi_show_thresh = 0.9;
@@ -59,7 +60,7 @@ tsum            = 0;
 U               = 0 * phi1;
 eps_u           = 1e-1;
 while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
-        (min([delta_abs1(end),delta_abs2(end)]) > absTol) &&  tt < 100 )
+        (min([delta_abs1(end),delta_abs2(end)]) > absTol) ||  tt < 1 )
   
   % Create instantaneous state change every so often
   bTriggerInput1 = 0;
@@ -95,6 +96,7 @@ while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   
   tt         = tt + ta + tb;
   tsum       = tsum + ta + tb;
+  t_all      = [t_all, tt];
   delta_abs1 = [delta_abs1, norm( prev_phi1(:) - phi1(:) )];
   delta_abs2 = [delta_abs2, norm( prev_phi2(:) - phi2(:) )];
   delta_rel1 = [delta_rel1, delta_abs1(end)/norm(phi1(:))];
@@ -112,6 +114,9 @@ while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   
 end
 
+fprintf('done! saving .... \n');
+save run_lskk_demo_out phi1 phi2 img_show U U0 tt xx yy
+
   function  [phi dt_a] = update_phi( Img, phi, Coupling )
     
     
@@ -127,9 +132,10 @@ end
     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
     
-    dt_a  = 1 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
+    dt0   = 0.8;
+    dt_a  = dt0 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     phi   = phi + dt_a * dphi;
-    phi =  reinit_SD(phi, 1, 1, 0.8, 'ENO2', 2);
+    phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', 2);
     
     
     
@@ -151,10 +157,10 @@ end
     fprintf( 'max-abs-phi = %f, t= %f \n',max(abs(phi1(:))),tt );
     
     sfigure(1); subplot(2,1,1); 
-    semilogy( delta_rel1,'r-.' ); hold on; 
-    semilogy( delta_rel2,'g--'); 
-    semilogy( delta_abs1,'m-.' ); 
-    semilogy( delta_abs2,'c--'); 
+    semilogy( t_all,delta_rel1,'r-.' ); hold on; 
+    semilogy( t_all,delta_rel2,'g--'); 
+    semilogy( t_all,delta_abs1,'m-.' ); 
+    semilogy( t_all,delta_abs2,'c--'); 
     hold off;
     legend('\Delta-rel for \phi_1','\Delta-rel for \phi_2', ...
            '\Delta-abs for \phi_1','\Delta-abs for \phi_2'); 
