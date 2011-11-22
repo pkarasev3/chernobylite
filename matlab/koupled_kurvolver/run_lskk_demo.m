@@ -1,4 +1,4 @@
-function [phi1 phi2 img_show] = run_lskk_demo()
+function [phi1 phi2 img_show U U0 tt xx yy] = run_lskk_demo()
 % run demo func in-place:
 % [phi1 phi2 img_show] = run_lskk_demo();
 
@@ -6,7 +6,10 @@ addpath('~/source/chernobylite/matlab/util/');
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
 
-img   = phantom(); img = img + (randn(size(img))*1e-1 + 0.25).^2; img(img>1)=1;
+img   = phantom(); img = img + (randn(size(img))*1e-1); 
+img = abs(img+0.1).^(1.5);
+img(img>1)=1; 
+
 [m n] = size(img);
 [xx yy] = meshgrid(1:m,1:n);
 
@@ -15,10 +18,10 @@ xy2     = [110,112]; xy1          = [120,92];
 RadInit = 25;
 d1      = RadInit - sqrt( ((xx-xy1(1))).^2 + ((yy-xy1(2))).^2 );
 d2      = RadInit - sqrt( ((xx-xy2(1))).^2 + ((yy-xy2(2))).^2 );
-phi1    = tanh(3*d1); 
+phi1    = tanh(3*d1);
 phi2    = tanh(3*d2);
 
-sfigure(1); clf; 
+sfigure(1); clf;
 
 epsilon   = 0.8;
 zmax      = 20.0;
@@ -47,12 +50,16 @@ lambda     = 2*mean(abs(img(:)))^2;
 kappa_phi  = 0*phi1;
 delta_rel1 = [1];
 delta_rel2 = [1];
-relTol     = 1e-3;
+delta_abs1 = [1];
+delta_abs2 = [1];
+relTol     = 1e-4;
+absTol     = 1e2;
 phi_show_thresh = 0.9;
 tsum            = 0;
 U               = 0 * phi1;
-eps_u           = 1;
-while( min([delta_rel1(end),delta_rel2(end)]) > relTol &&  tt < 100 )
+eps_u           = 1e-1;
+while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
+        (min([delta_abs1(end),delta_abs2(end)]) > absTol) &&  tt < 100 )
   
   % Create instantaneous state change every so often
   bTriggerInput1 = 0;
@@ -60,17 +67,18 @@ while( min([delta_rel1(end),delta_rel2(end)]) > relTol &&  tt < 100 )
     bTriggerInput1 = 1;
     tsum           = 0;
     Uxy1 = [106,101]; % Input U(x,y,t)
-    U0   = 7;
-    dU   = U0*Heavi( U0 - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
-    U    = U + eps_u * dU; 
+    U0   = 10;
+    Rin  = 10;
+    dU   = U0*Heavi( Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
+    U    = U + dU - (eps_u * U).^3;
     phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
     phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
     phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
     
-    fprintf('added input at time %f, max U = %f, norm U = %f \n', ... 
-                                          tt, max(abs(U(:))), norm(U(:)) );
-                                        
-    fprintf('');                                        
+    fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
+      tt, max(abs(U(:))), norm(U(:)) );
+    
+    fprintf('');
     
   end
   
@@ -87,33 +95,19 @@ while( min([delta_rel1(end),delta_rel2(end)]) > relTol &&  tt < 100 )
   
   tt         = tt + ta + tb;
   tsum       = tsum + ta + tb;
-  delta_rel1 = [delta_rel1, norm( prev_phi1 - phi1 )/norm(phi1)];
-  delta_rel2 = [delta_rel2, norm( prev_phi2 - phi2 )/norm(phi2)];
+  delta_abs1 = [delta_abs1, norm( prev_phi1(:) - phi1(:) )];
+  delta_abs2 = [delta_abs2, norm( prev_phi2(:) - phi2(:) )];
+  delta_rel1 = [delta_rel1, delta_abs1(end)/norm(phi1(:))];
+  delta_rel2 = [delta_rel2, delta_abs2(end)/norm(phi2(:))];
   
   
   
   overlap_cost = overlap(phi1,phi2);
   emptygap_cost= emptygap(phi1,phi2,5) + emptygap(phi2,phi1,5);
-  sfigure(1); subplot(2,1,1); semilogy( delta_rel1,'r-.' ); hold on; semilogy( delta_rel2,'g--'); hold off;
-  legend('\Delta-rel for \phi_1','\Delta-rel for \phi_2'); title('relative levelset function change');
   fprintf('\n overlap cost = %f. empty-gap cost = %f,',overlap_cost,emptygap_cost);
   
   % setup display image
-  img_show = repmat(img0,[1 1 3]);
-  imgr = img_show(:,:,1); imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) + 1.5)/2;
-  imgg = img_show(:,:,2); imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) + 1.5)/2;
-  imgb = img_show(:,:,3); 
-  imgb( abs(C21)>0 ) = (imgb(abs(C21)>0) + abs(C21(abs(C21)>0))/max(abs(C21(:))) )/2; 
-  imgb( abs(C12)>0 ) = (imgb(abs(C12)>0) + abs(C12(abs(C12)>0))/max(abs(C12(:))) )/2; 
-  
-  img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
-  img_show(img_show>1)=1; img_show(img_show<0)=0;
-  sh=sfigure(1); subplot(2,1,2); imagesc(img_show);  title('image with coupled contours');
-  setFigure(sh,[10 10],1.3,3);
-  
-  fprintf( 'max-abs-phi = %f, t= %f \n',max(abs(phi1(:))),tt );
-  
-  drawnow;
+  displayLevelSets();
   fprintf('');
   
 end
@@ -126,21 +120,50 @@ end
     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
     
     kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
-        
+    
     g_alpha= (Img - mu_i).^2 - (Img - mu_o).^2 + Coupling;
     dphi  = delta(phi) .* (-g_alpha + lambda * kappa_phi) ;
     
     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
-                            mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
-      
+      mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
+    
     dt_a  = 1 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
-    phi   = phi + dt_a * dphi;  
+    phi   = phi + dt_a * dphi;
     phi =  reinit_SD(phi, 1, 1, 0.8, 'ENO2', 2);
     
     
     
   end
 
+  function displayLevelSets()
+    img_show = repmat(img0,[1 1 3]);
+    imgr = img_show(:,:,1); imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) + 1.5)/2;
+    imgg = img_show(:,:,2); imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) + 1.5)/2;
+    imgb = img_show(:,:,3);
+    imgb( abs(C21)>0 ) = (imgb(abs(C21)>0) + abs(C21(abs(C21)>0))/max(abs(C21(:))) )/2;
+    imgb( abs(C12)>0 ) = (imgb(abs(C12)>0) + abs(C12(abs(C12)>0))/max(abs(C12(:))) )/2;
+    
+    img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
+    img_show(img_show>1)=1; img_show(img_show<0)=0;
+    sh=sfigure(1); subplot(2,1,2); imagesc(img_show);  
+    title(['image with coupled contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt) ]);
+    setFigure(sh,[10 10],1.3,3);
+    fprintf( 'max-abs-phi = %f, t= %f \n',max(abs(phi1(:))),tt );
+    
+    sfigure(1); subplot(2,1,1); 
+    semilogy( delta_rel1,'r-.' ); hold on; 
+    semilogy( delta_rel2,'g--'); 
+    semilogy( delta_abs1,'m-.' ); 
+    semilogy( delta_abs2,'c--'); 
+    hold off;
+    legend('\Delta-rel for \phi_1','\Delta-rel for \phi_2', ...
+           '\Delta-abs for \phi_1','\Delta-abs for \phi_2'); 
+    title('relative levelset function change');
+    
+    drawnow;
+  
+  
+  end
 
 end
 
