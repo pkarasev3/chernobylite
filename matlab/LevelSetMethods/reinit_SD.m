@@ -42,7 +42,8 @@ S_phi_0 = phi./sqrt(phi.^2 + dx.^2);
 Vn_ext = feval(init_normal, S_phi_0);
 it=0;
 t=0;
-if( iterations > 10 ) 
+iMinItersToPrint = 20;
+if( iterations > iMinItersToPrint ) 
   fprintf('reinit_SD %d iterations: \n', iterations);
 end
 while(it < iterations)
@@ -51,12 +52,12 @@ while(it < iterations)
 	phi = phi + dt*(S_phi_0 - delta_normal);
 	it = it+1;
 	t = t+dt;
-  if( iterations >= 10 && mod(it, round(iterations/10) ) == 0 )
+  if( iterations > iMinItersToPrint && mod(it, round(iterations/10) ) == 0 )
     fprintf(' %d .. ', it );
   end
 end
 
-if( iterations > 10 )
+if( iterations > iMinItersToPrint )
   fprintf('\n');
 end
 

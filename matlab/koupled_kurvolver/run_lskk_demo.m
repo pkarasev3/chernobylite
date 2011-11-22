@@ -49,25 +49,48 @@ delta_rel1 = [1];
 delta_rel2 = [1];
 relTol     = 1e-3;
 phi_show_thresh = 0.9;
+tsum            = 0;
+U               = 0 * phi1;
+eps_u           = 1;
 while( min([delta_rel1(end),delta_rel2(end)]) > relTol &&  tt < 100 )
- 
+  
+  % Create instantaneous state change every so often
+  bTriggerInput1 = 0;
+  if( tsum > 0.01 )
+    bTriggerInput1 = 1;
+    tsum           = 0;
+    Uxy1 = [106,101]; % Input U(x,y,t)
+    U0   = 7;
+    dU   = U0*Heavi( U0 - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
+    U    = U + eps_u * dU; 
+    phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
+    phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
+    phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
+    
+    fprintf('added input at time %f, max U = %f, norm U = %f \n', ... 
+                                          tt, max(abs(U(:))), norm(U(:)) );
+                                        
+    fprintf('');                                        
+    
+  end
   
   
   CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  Coupling12        = (1-Heavi(phi1)).*(Heavi(phi2+5)-Heavi(phi2)); 
-  C12        = CouplingSymmetric + Coupling12;
+  C12        = CouplingSymmetric + (U.^2).*(-Heavi(U)+Heavi(phi1));
   prev_phi1  = phi1;
-  [phi1 ta]  = update_phi( img, phi1, 1e2*C12 );
+  [phi1 ta]  = update_phi( img, phi1, 1e2*C12);
   
   CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  Coupling21        = (1-Heavi(phi2)).*(Heavi(phi1+5)-Heavi(phi1)); 
-  C21        = CouplingSymmetric + Coupling21;
+  C21        = CouplingSymmetric;
   prev_phi2  = phi2;
   [phi2 tb]  = update_phi( img, phi2, 1e2*C21 );
   
   tt         = tt + ta + tb;
+  tsum       = tsum + ta + tb;
   delta_rel1 = [delta_rel1, norm( prev_phi1 - phi1 )/norm(phi1)];
   delta_rel2 = [delta_rel2, norm( prev_phi2 - phi2 )/norm(phi2)];
+  
+  
   
   overlap_cost = overlap(phi1,phi2);
   emptygap_cost= emptygap(phi1,phi2,5) + emptygap(phi2,phi1,5);
