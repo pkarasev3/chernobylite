@@ -12,9 +12,12 @@ n       = 256;
 
 img1     = ((0.3 - sqrt( xx.^2 + yy.^2 )) > 0 ) * 1.0;
 img2     = 1.0*( xx < 0 );
-%img2     = imfilter(img2,fspecial('gaussian',[m/8 n/8],m/8/2),'replicate');
+bSmoothImg2 = false();
+if( bSmoothImg2 )
+  img2     = imfilter(img2,fspecial('gaussian',[m/8 n/8],m/8/2),'replicate');
+end
 img      = 0.5 * (img1 + img2);
-img      = img - min(img(:)); img = img / max(img(:)) * 0.95;
+img      = img - min(img(:)); img = img / max(img(:));
 
 
 
@@ -70,9 +73,9 @@ tsum            = 0;
 U               = 0 * phi1;
 eps_u           = 1e-1;
 steps           = 0;
-MaxSteps        = 5000;
-while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
-    (min([delta_abs1(end),delta_abs2(end)]) > absTol) &&  (steps < MaxSteps) )
+MaxSteps        = 1000;
+while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
+    (min([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (steps < MaxSteps) )
   steps = steps + 1 + eps_u - eps_u;
   
   % Create instantaneous state change every so often
@@ -97,7 +100,7 @@ while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   %   end
   
   
-  CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
+  CouplingSymmetric = 0 * (Heavi(phi1*1e2).*Heavi(phi2*1e2));
   C12        = CouplingSymmetric + (U.^2).*(-Heavi(U)+Heavi(phi1));
   prev_phi1  = phi1;
   [phi1 ta mui1 muo1]  = update_phi( img, phi1, 1e2*C12);
@@ -164,35 +167,37 @@ save run_control_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2
 
   function displayLevelSets()
     img_show = repmat(img0,[1 1 3]);
+    imgb = img_show(:,:,3);
     imgg = img_show(:,:,2);
     imgr = img_show(:,:,1);
-    imgr( abs( phi2 ) < phi_show_thresh ) = imgr(abs( phi2 ) < phi_show_thresh) / 3.0;
-    imgg( abs( phi1 ) < phi_show_thresh ) = imgr(abs( phi1 ) < phi_show_thresh) / 3.0;
-    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh)/2 + ...
-      1.5 * abs( phi1(abs(phi1) < phi_show_thresh ) ) );
     
-    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh)/2 + ...
-      1.5 * abs( phi2(abs(phi2) < phi_show_thresh ) ) );
+    % zero out the non-active colors for phi1 (active red), phi2 (active green)
+    imgr( abs( phi2 ) < phi_show_thresh ) = 0;
+    imgg( abs( phi1 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi2 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi1 ) < phi_show_thresh ) = 0;
     
-    imgb = img_show(:,:,3);
+    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
+      abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
+    
+    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
+      abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
+    
+   
     imgb( abs(C21)>0 ) = (imgb(abs(C21)>0)/2 + abs(C21(abs(C21)>0))/max(abs(C21(:))) );
     imgb( abs(C12)>0 ) = (imgb(abs(C12)>0)/2 + abs(C12(abs(C12)>0))/max(abs(C12(:))) );
     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
-    sh=sfigure(1); subplot(1,2,2); imagesc(img_show);
+    sh=sfigure(1); subplot(1,2,2); imshow(img_show);
     title(['image with coupled contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt) ]);
-    setFigure(sh,[10 10],3.5,1.5);
+    setFigure(sh,[10 10],3.2,1.5);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    if( steps < 500 )
-      imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
-    elseif( mod(steps,20) == 0  && steps < 1000 )
-      imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
-    elseif( mod(steps,60) == 0 )
-      imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
-    end
-    
+    imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
+        
     
     sfigure(1); subplot(1,2,1);
     semilogy( t_all,delta_rel1,'r-.' ); hold on;
