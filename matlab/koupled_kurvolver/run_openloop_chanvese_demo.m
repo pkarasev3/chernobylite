@@ -1,4 +1,4 @@
-function [phi1 phi2 img_show U U0 tt xx yy] = run_control_chanvese_demo()
+function [phi1 phi2 img_show U U0 tt xx yy] = run_openloop_chanvese_demo()
 % run demo func in-place:
 % [phi1 phi2 img_show] = run_lskk_demo();
 
@@ -74,48 +74,41 @@ U               = 0 * phi1;
 eps_u           = 1e-1;
 steps           = 0;
 MaxSteps        = 1000;
-img_pt          = img( size(img,1)/2, size(img,1)/2 + 5 );
 while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
     (min([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (steps < MaxSteps) )
   steps = steps + 1 + eps_u - eps_u;
   
   % Create instantaneous state change every so often
-  if( tsum > 1 ) 
-    tsum           = 0;
-    Uxy1 = RadInit*[cos(pi/3);  sin(pi/3)];  % Input U(x,y,t)
-    Uxy2 = RadInit*[cos(-pi/3); sin(-pi/3)]; % Input U(x,y,t)
-    Uxy3 = RadInit*[cos(0); sin(0)]; % Input U(x,y,t)
-    U0   = 1;
-    Rin  = 0.1;
-    dU1   = U0*Heavi( (Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) )*1e1 );
-    dU2   = U0*Heavi( (Rin - sqrt( ((xx-Uxy2(1))).^2 + ((yy-Uxy2(2))).^2 ) )*1e1 );
-    dU3   = U0*Heavi( (Rin - sqrt( ((xx-Uxy3(1))).^2 + ((yy-Uxy3(2))).^2 ) )*1e1 );
-    dU1   = dU1 .* ( abs(img - img_pt)<1e-3 );
-    dU2   = dU2 .* ( abs(img - img_pt)<1e-3 );
-    dU3   = dU3 .* ( abs(img - img_pt)<1e-3 );
-    dU    = dU1+dU2+dU3;
-    U    = U + dU - (eps_u * U).^3;
-%     phi2( 0 < (dU < 0).*(phi2>0)  ) = -1;
-%     phi2( 0 < (dU > 0).*(phi2<=0) ) = +1;
-%     phi2 =  reinit_SD(phi2, 1, 1, 0.8, 'ENO2', 10);
-    
-    fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
-      tt, max(abs(U(:))), norm(U(:)) );
-    
-    fprintf('');
-    
-  end
+  %   bTriggerInput1 = 0;
+  %   if( tsum > 0.01 )
+  %     bTriggerInput1 = 1;
+  %     tsum           = 0;
+  %     Uxy1 = [106,101]; % Input U(x,y,t)
+  %     U0   = 10;
+  %     Rin  = 10;
+  %     dU   = U0*Heavi( Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
+  %     U    = U + dU - (eps_u * U).^3;
+  %     phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
+  %     phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
+  %     phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
+  %
+  %     fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
+  %       tt, max(abs(U(:))), norm(U(:)) );
+  %
+  %     fprintf('');
+  %
+  %   end
   
   
-  CouplingSymmetric = 0*(Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  C12        = CouplingSymmetric;
+  CouplingSymmetric = 0 * (Heavi(phi1*1e2).*Heavi(phi2*1e2));
+  C12        = CouplingSymmetric + (U.^2).*(-Heavi(U)+Heavi(phi1));
   prev_phi1  = phi1;
-  [phi1 ta mui1 muo1]  = update_phi( img, phi1, C12);
+  [phi1 ta mui1 muo1]  = update_phi( img, phi1, 1e2*C12);
   
-  CouplingSymmetric =0*(Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  C21        = CouplingSymmetric  + (U.^2).*(-Heavi(U)+Heavi(phi2));
+  CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
+  C21        = CouplingSymmetric;
   prev_phi2  = phi2;
-  [phi2 tb mui2 muo2]  = update_phi( img, phi2, C21 );
+  [phi2 tb mui2 muo2]  = update_phi( img, phi2, 1e2*C21 );
   
   mu1_in_out = [mu1_in_out, [mui1;muo1]];
   mu2_in_out = [mu2_in_out, [mui2;muo2]];
@@ -140,20 +133,20 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
 end
 
 fprintf('done! saving .... \n');
-save run_control_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 ...
-  phi1 phi2 img img_show U U0 tt xx yy  mu1_in_out mu2_in_out steps 
+save run_control_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 ... 
+                               phi1 phi2 img img_show U U0 tt xx yy  mu1_in_out mu2_in_out steps
 
 
   function  [mu_i mu_o] = compute_means( Img,phi )
-    mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
-    mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
+     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
+     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
   end
 
   function  [phi dt_a mu_i mu_o] = update_phi( Img, phi, Coupling )
     
     
     [mu_i, mu_o] = compute_means(Img,phi);
-    
+   
     
     kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
     
@@ -184,18 +177,18 @@ save run_control_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2
     imgb( abs( phi2 ) < phi_show_thresh ) = 0;
     imgb( abs( phi1 ) < phi_show_thresh ) = 0;
     
-    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ...
+    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
       abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
       1.5 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
     
-    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ...
+    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
       abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
       1.5 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
     
+   
+    imgb( abs(C21)>0 ) = (imgb(abs(C21)>0)/2 + abs(C21(abs(C21)>0))/max(abs(C21(:))) );
+    imgb( abs(C12)>0 ) = (imgb(abs(C12)>0)/2 + abs(C12(abs(C12)>0))/max(abs(C12(:))) );
     
-%     imgb( abs(C21)>0 ) = (imgb(abs(C21)>0)/2 + abs(C21(abs(C21)>0))/max(abs(C21(:))) );
-%     imgb( abs(C12)>0 ) = (imgb(abs(C12)>0)/2 + abs(C12(abs(C12)>0))/max(abs(C12(:))) );
-%     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     sh=sfigure(1); subplot(1,2,2); imshow(img_show);
@@ -203,8 +196,8 @@ save run_control_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2
     setFigure(sh,[10 10],3.2,1.5);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    imwrite(img_show,['control_chanvese_demo_' num2str_fixed_width(steps) '.png']);
-    
+    imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
+        
     
     sfigure(1); subplot(1,2,1);
     semilogy( t_all,delta_rel1,'r-.' ); hold on;
