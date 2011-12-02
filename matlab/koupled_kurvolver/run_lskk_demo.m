@@ -59,8 +59,8 @@ phi_show_thresh = 0.9;
 tsum            = 0;
 U               = 0 * phi1;
 eps_u           = 1e-1;
-while( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
-        (min([delta_abs1(end),delta_abs2(end)]) > absTol) ||  tt < 1 )
+while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
+         (min([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (tt < 1) )
   
   % Create instantaneous state change every so often
   bTriggerInput1 = 0;
