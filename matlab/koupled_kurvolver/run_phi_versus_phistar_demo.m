@@ -7,26 +7,28 @@ addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
 
 img      = phantom(); 
+img(img==0) = 0.1;
 [star_i star_j] = find( ( (img < 1e-1) - (img == 0) ) > 1e-3  );
 keep_idx  = find( star_j < 128 );
 star_i    = star_i(keep_idx);
 star_j    = star_j(keep_idx);
 idx_left  = sub2ind( size(img), star_i, star_j);
 left_stub = img*0-1; left_stub( idx_left ) = 1;
-phi_star  = tanh( imfilter( 5 * left_stub, fspecial('gaussian',[5 5],1.0),'replicate') );
+phi_star  = 3*tanh( imfilter( left_stub, fspecial('gaussian',[3 3],1.5),'replicate') );
+phi_star  = reinit_SD(phi_star, 1, 1, 0.7, 'ENO2', 5);
 
-img(149:156,124:140) =  img(150,124); % Make a 'bridge' connecting the two chunks
+img(145:156,120:145) =  img(150,124); % Make a 'bridge' connecting the two chunks
 
-img = img + (randn(size(img))*1e-1); 
+img = img + (randn(size(img))*5e-2); 
 img = abs(img+0.1).^(1.5);
 img(img>1)=1; 
 
 [m n] = size(img);
 [xx yy] = meshgrid(1:m,1:n);
 
-xy2     = [110,112]; xy1          = [120,92];
+xy2     = [100,120]; xy1          = [120,92];
 
-RadInit = 25;
+RadInit = 15;
 d1      = RadInit - sqrt( ((xx-xy1(1))).^2 + ((yy-xy1(2))).^2 );
 d2      = RadInit - sqrt( ((xx-xy2(1))).^2 + ((yy-xy2(2))).^2 );
 phi1    = phi_star;
@@ -70,37 +72,41 @@ phi_show_thresh = 0.9;
 tsum            = 0;
 U               = 0 * phi1;
 eps_u           = 1e-1;
-while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
-         (min([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (tt < 1) )
+steps           = 0;
+MaxSteps        = 3000;
+
+while( ( (max([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
+         (max([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (tt < 3) && (steps < MaxSteps) )
   
   % Create instantaneous state change every so often
-  bTriggerInput1 = 0;
-  if( tsum > 0.01 )
-    bTriggerInput1 = 1;
-    tsum           = 0;
-    Uxy1 = [106,101]; % Input U(x,y,t)
-    U0   = 10;
-    Rin  = 10;
-    dU   = U0*Heavi( Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
-    U    = U + dU - (eps_u * U).^3;
-    phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
-    phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
-    phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
-    
-    fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
-      tt, max(abs(U(:))), norm(U(:)) );
-    
-    fprintf('');
-    
-  end
+%   bTriggerInput1 = 0;
+%   if( tsum > 0.01 )
+%     bTriggerInput1 = 1;
+%     tsum           = 0;
+%     Uxy1 = [106,101]; % Input U(x,y,t)
+%     U0   = 10;
+%     Rin  = 10;
+%     dU   = U0*Heavi( Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
+%     U    = U + dU - (eps_u * U).^3;
+%     phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
+%     phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
+%     phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
+%     
+%     fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
+%       tt, max(abs(U(:))), norm(U(:)) );
+%     
+%     fprintf('');
+%     
+%   end
   
   
-  CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
+  CouplingSymmetric = 0*(Heavi(phi1*1e2).*Heavi(phi2*1e2));
   C12        = CouplingSymmetric + (U.^2).*(-Heavi(U)+Heavi(phi1));
   prev_phi1  = phi1;
   [phi1 ta]  = update_phi( img, phi1, 1e2*C12);
+  phi1       = phi_star;
   
-  CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
+  CouplingSymmetric = 0*(Heavi(phi1*1e2).*Heavi(phi2*1e2));
   C21        = CouplingSymmetric;
   prev_phi2  = phi2;
   [phi2 tb]  = update_phi( img, phi2, 1e2*C21 );
@@ -122,11 +128,12 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   % setup display image
   displayLevelSets();
   fprintf('');
-  
+  steps = steps+1;
 end
 
 fprintf('done! saving .... \n');
-save run_lskk_demo_out phi1 phi2 img_show U U0 tt xx yy
+save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 ... 
+                               phi1 phi2 img img_show U U0 tt xx yy  steps
 
   function  [phi dt_a] = update_phi( Img, phi, Coupling )
     
@@ -154,27 +161,46 @@ save run_lskk_demo_out phi1 phi2 img_show U U0 tt xx yy
 
   function displayLevelSets()
     img_show = repmat(img0,[1 1 3]);
-    imgr = img_show(:,:,1); imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) + 1.5)/2;
-    imgg = img_show(:,:,2); imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) + 1.5)/2;
     imgb = img_show(:,:,3);
-    imgb( abs(C21)>0 ) = (imgb(abs(C21)>0) + abs(C21(abs(C21)>0))/max(abs(C21(:))) )/2;
-    imgb( abs(C12)>0 ) = (imgb(abs(C12)>0) + abs(C12(abs(C12)>0))/max(abs(C12(:))) )/2;
+    imgg = img_show(:,:,2);
+    imgr = img_show(:,:,1);
+    
+    % zero out the non-active colors for phi1 (active red), phi2 (active green)
+    imgr( abs( phi2 ) < phi_show_thresh ) = 0;
+    imgg( abs( phi1 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi2 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi1 ) < phi_show_thresh ) = 0;
+    
+    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
+      abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
+    
+    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
+      abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
+    
+   
+    imgb( abs(C21)>0 ) = (imgb(abs(C21)>0)/2 + abs(C21(abs(C21)>0))/max(abs(C21(:))) );
+    imgb( abs(C12)>0 ) = (imgb(abs(C12)>0)/2 + abs(C12(abs(C12)>0))/max(abs(C12(:))) );
     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
-    sh=sfigure(1); subplot(2,1,2); imagesc(img_show);  
+    sh=sfigure(1); subplot(1,2,2); imshow(img_show);
     title(['image with coupled contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt) ]);
-    setFigure(sh,[10 10],1.3,3);
-    fprintf( 'max-abs-phi = %f, t= %f \n',max(abs(phi1(:))),tt );
+    setFigure(sh,[10 10],3.2,1.5);
+    fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    sfigure(1); subplot(2,1,1); 
-    semilogy( t_all,delta_rel1,'r-.' ); hold on; 
-    semilogy( t_all,delta_rel2,'g--'); 
-    semilogy( t_all,delta_abs1,'m-.' ); 
-    semilogy( t_all,delta_abs2,'c--'); 
+    imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
+        
+    
+    sfigure(1); subplot(1,2,1);
+    semilogy( t_all,delta_rel1,'r-.' ); hold on;
+    semilogy( t_all,delta_rel2,'g--');
+    semilogy( t_all,delta_abs1,'m-.' );
+    semilogy( t_all,delta_abs2,'c--');
     hold off;
     legend('\Delta-rel for \phi_1','\Delta-rel for \phi_2', ...
-           '\Delta-abs for \phi_1','\Delta-abs for \phi_2'); 
+      '\Delta-abs for \phi_1','\Delta-abs for \phi_2');
     title('relative levelset function change');
     
     drawnow;
