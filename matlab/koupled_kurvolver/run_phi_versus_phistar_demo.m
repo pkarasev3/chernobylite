@@ -1,7 +1,8 @@
-function [phi1 phi2 img_show U U0 tt xx yy] = run_lskk_demo()
+function [phi1 phi2 img_show U U0 tt xx yy] = run_phi_versus_phistar_demo()
 % run demo func in-place:
 % [phi1 phi2 img_show] = run_lskk_demo();
 
+dbstop if error;
 addpath('~/source/chernobylite/matlab/util/');
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
@@ -15,7 +16,7 @@ star_j    = star_j(keep_idx);
 idx_left  = sub2ind( size(img), star_i, star_j);
 left_stub = img*0-1; left_stub( idx_left ) = 1;
 phi_star  = 3*tanh( imfilter( left_stub, fspecial('gaussian',[3 3],1.5),'replicate') );
-phi_star  = reinit_SD(phi_star, 1, 1, 0.7, 'ENO2', 5);
+phi_star  = reinit_SD(phi_star, 1, 1, 0.5, 'ENO2', 100);
 
 img(145:156,120:145) =  img(150,124); % Make a 'bridge' connecting the two chunks
 
@@ -33,6 +34,7 @@ d1      = RadInit - sqrt( ((xx-xy1(1))).^2 + ((yy-xy1(2))).^2 );
 d2      = RadInit - sqrt( ((xx-xy2(1))).^2 + ((yy-xy2(2))).^2 );
 phi1    = phi_star;
 phi2    = tanh(3*d2);
+phi2    = reinit_SD(phi2,1,1,0.5,'ENO2',20);
 
 sfigure(1); clf;
 
@@ -59,12 +61,18 @@ img0 = img;
 img  = imfilter( img * 255, fspecial('gaussian',[5 5],1),'replicate');
 img  = img - mean(img(:));
 
+img_show_mid  = img * 0;
+img_show_init = img * 0;
+phi2_init     = 0 * img;
+phi2_mid      = 0 * img;
+
 lambda     = 2*mean(abs(img(:)))^2;
 kappa_phi  = 0*phi1;
 delta_rel1 = [1];
 delta_rel2 = [1];
 delta_abs1 = [1];
 delta_abs2 = [1];
+
 t_all      = [0];
 relTol     = 1e-4;
 absTol     = 1e2;
@@ -73,47 +81,59 @@ tsum            = 0;
 U               = 0 * phi1;
 eps_u           = 1e-1;
 steps           = 0;
-MaxSteps        = 3000;
+MaxSteps        = 400;
+Dval            = eval_label_dist(phi1,phi2);
+Dval_all        = [Dval];
 
-while( ( (max([delta_rel1(end),delta_rel2(end)]) > relTol)  || ... 
-         (max([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (tt < 3) && (steps < MaxSteps) )
+Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
+dt_init         = 0.7;
+dt0             = dt_init;
+
+
+while( (tt < 3) && (steps < MaxSteps) )
   
-  % Create instantaneous state change every so often
-%   bTriggerInput1 = 0;
-%   if( tsum > 0.01 )
-%     bTriggerInput1 = 1;
-%     tsum           = 0;
-%     Uxy1 = [106,101]; % Input U(x,y,t)
-%     U0   = 10;
-%     Rin  = 10;
-%     dU   = U0*Heavi( Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
-%     U    = U + dU - (eps_u * U).^3;
-%     phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
-%     phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
-%     phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
-%     
-%     fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
-%       tt, max(abs(U(:))), norm(U(:)) );
-%     
-%     fprintf('');
-%     
-%   end
+  prev_phi1            = phi1;
+  g_gain               = 1e1;
+  [phi2_pred ta gval]  = update_phi( img, phi2, 0 * phi2,0);
+  phi1                 = phi_star;
+  U                    = max( abs(gval) .* g_gain, U );
+  U                    =  2 * sqrt(Gmax) + 0*img;
+  eta                  = (Heavi(phi1)-Heavi(phi2));
+  f_of_U               = -(U.^2).*(eta);
   
+  C21=delta(phi2*0.5).*f_of_U;
+  C12=21;
   
-  CouplingSymmetric = 0*(Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  C12        = CouplingSymmetric + (U.^2).*(-Heavi(U)+Heavi(phi1));
-  prev_phi1  = phi1;
-  [phi1 ta]  = update_phi( img, phi1, 1e2*C12);
-  phi1       = phi_star;
-  
-  CouplingSymmetric = 0*(Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  C21        = CouplingSymmetric;
   prev_phi2  = phi2;
-  [phi2 tb]  = update_phi( img, phi2, 1e2*C21 );
+  [phi2 tb]  = update_phi( img, phi2, f_of_U,2);
+  
+  % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
+  Dval_prv = Dval;
+  Dval     = eval_label_dist(phi1,phi2);
+  Dval_all = [Dval_all, Dval];                                      %#ok<AGROW>
+  fprintf('\nDval = %f\n',Dval);
+  Dval_pred = eval_label_dist(phi1,phi2_pred);
+  bBadDval = false();
+  if( Dval > Dval_prv )
+    fprintf('Warning, Dval did not decrease, previous value %f !? ',Dval_prv);
+    bBadDval = true();
+  elseif( Dval_pred < Dval )
+    fprintf('Warning, Dval rate worse with f(U), predicted value %f !? ',Dval_pred);
+  end
+  if( bBadDval ) % If D failed to shrink, reduce the time step
+    dt0 = dt0 * 0.5;
+    phi_star  = reinit_SD(phi_star, 1, 1, dt0, 'ENO2', 3);
+    phi1      = phi_star;
+    phi2      = reinit_SD(phi2,     1, 1, dt0, 'ENO2', 3);
+    fprintf(', dt0 = %f \n', dt0 );
+    fprintf('');
+  else           % Raise time-step back up if we're shrinking
+    dt0 = dt0 + 0.25 * ( dt_init - dt0 );
+  end
   
   tt         = tt + ta + tb;
   tsum       = tsum + ta + tb;
-  t_all      = [t_all, tt];
+  t_all      = [t_all, tt]; %#ok<*AGROW>
   delta_abs1 = [delta_abs1, norm( prev_phi1(:) - phi1(:) )];
   delta_abs2 = [delta_abs2, norm( prev_phi2(:) - phi2(:) )];
   delta_rel1 = [delta_rel1, delta_abs1(end)/norm(phi1(:))];
@@ -131,11 +151,23 @@ while( ( (max([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   steps = steps+1;
 end
 
-fprintf('done! saving .... \n');
-save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 ... 
-                               phi1 phi2 img img_show U U0 tt xx yy  steps
+result = save_all( );
+fprintf('result = %f \n',result);
 
-  function  [phi dt_a] = update_phi( Img, phi, Coupling )
+  function res = save_all( )
+    fprintf('done! saving .... \n');
+    save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 ... 
+                             phi2_init phi2_mid img_show_mid img_show_init phi1 phi2 img img_show U tt xx yy  steps Dval_all 
+    res = 1;                               
+  end
+  function [Dval] = eval_label_dist( phiA, phiB )                             
+    
+    Dval = trapz(trapz( (Heavi(phiA)-Heavi(phiB)).^2 ) );
+    
+  end
+                             
+  function  [phi dt_a g_source] = update_phi( Img, phi, Coupling, ... 
+                                               redist_iters)
     
     
     
@@ -144,16 +176,22 @@ save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 
     
     kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
     
-    g_alpha= (Img - mu_i).^2 - (Img - mu_o).^2 + Coupling;
+    GofIandPhi = (Img - mu_i).^2 - (Img - mu_o).^2;
+    assert( max(abs(GofIandPhi(:)))  <= Gmax );
+    g_alpha = GofIandPhi + Coupling;
+    
+    g_source= -g_alpha + 0 * lambda * kappa_phi ;
     dphi  = delta(phi) .* (-g_alpha + lambda * kappa_phi) ;
+    
     
     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
     
-    dt0   = 0.8;
     dt_a  = dt0 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     phi   = phi + dt_a * dphi;
-    phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', 2);
+    if( redist_iters > 0 )
+      phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', redist_iters);
+    end
     
     
     
@@ -180,28 +218,36 @@ save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 
       1.5 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
     
    
-    imgb( abs(C21)>0 ) = (imgb(abs(C21)>0)/2 + abs(C21(abs(C21)>0))/max(abs(C21(:))) );
-    imgb( abs(C12)>0 ) = (imgb(abs(C12)>0)/2 + abs(C12(abs(C12)>0))/max(abs(C12(:))) );
+    %imgb( abs(C21)>0 ) = (imgb(abs(C21)>0)/2 + abs(C21(abs(C21)>0))/max(abs(C21(:))) );
+    %imgb( abs(C12)>0 ) = (imgb(abs(C12)>0)/2 + abs(C12(abs(C12)>0))/max(abs(C12(:))) );
     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     sh=sfigure(1); subplot(1,2,2); imshow(img_show);
     title(['image with coupled contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt) ]);
-    setFigure(sh,[10 10],3.2,1.5);
+    setFigure(sh,[10 10],3.5,1.9);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
+    %imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
         
     
     sfigure(1); subplot(1,2,1);
-    semilogy( t_all,delta_rel1,'r-.' ); hold on;
-    semilogy( t_all,delta_rel2,'g--');
-    semilogy( t_all,delta_abs1,'m-.' );
-    semilogy( t_all,delta_abs2,'c--');
+    semilogy( t_all,Dval_all,'r-.' ); hold on;
     hold off;
-    legend('\Delta-rel for \phi_1','\Delta-rel for \phi_2', ...
-      '\Delta-abs for \phi_1','\Delta-abs for \phi_2');
+    legend('D(\phi,\phi^*');
     title('relative levelset function change');
+    
+    
+    if( steps == 10 )
+      phi2_init = phi2;
+      img_show_init = img_show;
+      imwrite(img_show,'img_show_init.png');
+    elseif( steps == 100 )
+      phi2_mid = phi2;
+      img_show_mid = img_show;
+      imwrite(img_show,'img_show_mid.png');
+      fprintf('');
+    end
     
     drawnow;
   
@@ -210,7 +256,10 @@ save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 
 
 end
 
-
+%     semilogy( t_all,delta_rel1,'r-.' ); hold on;
+%     semilogy( t_all,delta_rel2,'g--');
+%     semilogy( t_all,delta_abs1,'m-.' );
+%     semilogy( t_all,delta_abs2,'c--');
 
 
 

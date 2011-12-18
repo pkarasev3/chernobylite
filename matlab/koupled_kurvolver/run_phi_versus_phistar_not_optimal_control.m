@@ -194,7 +194,7 @@ save run_control_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 .
     setFigure(sh,[10 10],3.2,1.5);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    imwrite(img_show,['control_doh_bridge_demo_' num2str_fixed_width(steps) '.png']);
+   % imwrite(img_show,['control_doh_bridge_demo_' num2str_fixed_width(steps) '.png']);
         
     
     sfigure(1); subplot(1,2,1);
