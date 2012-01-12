@@ -180,7 +180,8 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   
   
   eta                  = (Heavi(phi1)-Heavi(phi2));
-  f_of_U               = -(U.^2).*(eta);
+  alph1                = 0.25;
+  f_of_U               = -(U.^2).*(eta) - (U.^2).*(eta)./(eta.^2+alph1);
   
   C21=delta(phi2*0.5).*f_of_U;
   C12=21;
