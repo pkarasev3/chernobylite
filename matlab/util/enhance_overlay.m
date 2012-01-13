@@ -8,9 +8,12 @@ dbstop if error
   overlaychan = img(:,:,chan_idx);
   chan_idxB   = mod( (chan_idx+1),3 )+1;
   overlaychanB= img(:,:,chan_idxB );
-  idx_overlay = find( 3*overlaychan(:) >= 1.25*(ir(:)+ig(:)+ib(:) ) ); % where is overlay
+  idx_overlay = find( 3*overlaychan(:) >= 2*(ir(:)+ig(:)+ib(:) ) ); % where is overlay
   
   [ii jj] = ind2sub(size(ir),idx_overlay);
+  ii(ii<2)=2; jj(jj<2)=2; 
+  ii(ii>size(img,1)-1)=size(img,1)-1; 
+  jj(jj>size(img,2)-1)=size(img,2)-1;
   npts=numel(ii);
   for i = 1:npts 
     overlaychanB(ii(i)+1,jj(i)) = overlaychanB(ii(i)+1,jj(i))/2 + 0.5;

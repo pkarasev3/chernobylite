@@ -8,13 +8,13 @@ function run_phi_versus_phistar_demo()
   
   dt_init         = 0.7; 
   
-  [Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
-  sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
+  %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
+  %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
   
-  [Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
-   sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
+  %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
+  % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     (1/(4)) ,dt_init);
+  [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
    sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
@@ -180,8 +180,10 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   
   
   eta                  = (Heavi(phi1)-Heavi(phi2));
-  alph1                = 0.25;
-  f_of_U               = -(U.^2).*(eta) - (U.^2).*(eta)./(eta.^2+alph1);
+  alph1                = 1e-12;
+  f1                   = -(U.^2).*(eta);
+  f2                   = - rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
+  f_of_U               = f1 + f2; 
   
   C21=delta(phi2*0.5).*f_of_U;
   C12=21;
