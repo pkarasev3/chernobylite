@@ -70,6 +70,7 @@ dbstop if error;
 addpath('~/source/chernobylite/matlab/util/');
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
+addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
 img      = phantom(); 
 img(img==0) = 0.1;
@@ -95,15 +96,25 @@ xy2     = [100,120]; xy1          = [120,92];
 RadInit = 15;
 d1      = RadInit - sqrt( ((xx-xy1(1))).^2 + ((yy-xy1(2))).^2 );
 d2      = RadInit - sqrt( ((xx-xy2(1))).^2 + ((yy-xy2(2))).^2 );
-
+bUseLSM = true();
 if( exist('initial_data_phi_phi-star_img.mat','file' ) ) 
   load initial_data_phi_phi-star_img.mat
   assert( numel(phi2)==numel(img) ); assert( numel(phi_star)==numel(img) ); %#ok<NODEF>
 else
-  phi_star  = 3*tanh( imfilter( left_stub, fspecial('gaussian',[3 3],1.5),'replicate') );
-  phi_star  = reinit_SD(phi_star, 1, 1, 0.5, 'ENO3', 300);
-  phi2    = tanh(3*d2);
-  phi2    = reinit_SD(phi2,1,1,0.5,'ENO3',300);
+  phi_star  = 1e2*tanh(imfilter( left_stub, fspecial('gaussian',[3 3],1.5),'replicate') );
+  phi2      = 1e2*tanh(d2);
+  if(bUseLSM)
+     % phi, "ghost">=1,dX,iters,spatial order, time order
+     phi_init = phi_star;
+     phi_star = reinitializeLevelSetFunction(phi_init, 1, 1, 500, 3, 2);
+     phi_init = phi2;
+     phi2     = reinitializeLevelSetFunction(phi_init, 1, 1, 500, 3, 2);
+  else
+    phi_star  = reinit_SD(phi_star, 1, 1, 0.5, 'ENO3', 300);
+    phi2      = reinit_SD(phi2,1,1,0.5,'ENO3',300);
+  end
+  
+  
 end
 
 phi1 = phi_star;
@@ -207,7 +218,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   if( bBadDval ) % If D failed to shrink, get the previous phi, redistance a bit, reduce the time step
     dt0 = max([dt_min, dt0 - 2e-1*dt0]);
     phi2      = prev_phi2;
-    phi2      = reinit_SD(phi2,     1, 1, 0.25, 'ENO3', 2);
+    phi2      = reinitializeLevelSetFunction(phi2,1,1,2,3,2); %phi2      = reinit_SD(phi2,     1, 1, 0.25, 'ENO3', 2);
     fprintf(', dt0 = %f \n', dt0 );
     fprintf('');
   else           % Raise time-step back up if we're shrinking
@@ -275,9 +286,13 @@ fprintf('result = %f \n',result);
     dt_a  = dt0 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     phi   = phi + dt_a * dphi;
     if( redist_iters > 0 )
-      phi =  reinit_SD(phi, 1, 1, dt0, 'ENO3', redist_iters);
+      if( bUseLSM )
+        phi   =  reinitializeLevelSetFunction(phi,1,1,redist_iters,3,2);
+      else
+        phi =  reinit_SD(phi, 1, 1, dt0, 'ENO3', redist_iters);
+      end
     end
-    
+    fprintf('');
     
     
   end
