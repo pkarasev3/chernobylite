@@ -8,7 +8,8 @@
 %                                           dX, ...
 %                                           max_iterations, ...
 %                                           spatial_derivative_order, ...
-%                                           tvdrk_order)
+%                                           tvdrk_order, ...
+%                                           fill_border )
 %
 % Arguments:
 %   phi_init:                  initial level set function 
@@ -23,6 +24,7 @@
 %                                (default = 5)
 %   tvdrk_order:               order of discretization for time integration
 %                                (default = 3)
+%   fill_border:               true or false, set edge values to one inside
 %
 % Return value:
 %   phi:                       reinitialized level set function
@@ -53,7 +55,7 @@ function phi = reinitializeLevelSetFunction(phi_init, ...
                                             dX, ...
                                             max_iterations, ...
                                             spatial_derivative_order, ...
-                                            tvdrk_order)
+                                            tvdrk_order, fill_border)
 
 % parameter checks
 if (nargin < 3)
@@ -82,6 +84,9 @@ else
   if ( (tvdrk_order ~= 1) & (tvdrk_order ~= 2) & (tvdrk_order ~= 3) )
     error('reinitializeLevelSetFunction:Invalid time integration order...only 1, 2, and 3 are supported');
   end
+end
+if( nargin < 7 )
+  fill_border = 0;
 end
 
 % determine dimensionality of problem
@@ -167,13 +172,15 @@ while (count < max_iterations)
 
     end % } end TVDRK cases
   
-     % Better B/C (PK)
-    phi(1:end,1)   = (phi(1:end,2)+phi(1:end,1))*0.5;
-    phi(1:end,end) = (phi(1:end,end-1)+phi(1:end,end))*0.5;
-    phi(1,1:end)   = (phi(2,1:end)  +phi(1,1:end))*0.5;
-    phi(end,1:end) = (phi(end,1:end)+phi(end-1,1:end))*0.5;
-    fprintf('');
-        
+    if( fill_border )
+       % Better B/C (PK) at initialization
+      phi(1:end,1)   = (phi(1:end,2)+phi(1:end,1))*0.5;
+      phi(1:end,end) = (phi(1:end,end-1)+phi(1:end,end))*0.5;
+      phi(1,1:end)   = (phi(2,1:end)  +phi(1,1:end))*0.5;
+      phi(end,1:end) = (phi(end,1:end)+phi(end-1,1:end))*0.5;
+      fprintf('');
+    end
+    
   elseif (num_dims == 3) 
 
     [phi_x_plus, phi_y_plus, phi_z_plus, ...

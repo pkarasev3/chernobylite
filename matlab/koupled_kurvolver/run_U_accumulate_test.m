@@ -1,4 +1,4 @@
-function run_phi_versus_phistar_demo()
+function run_U_accumulate_test()
   set(0,'defaultaxesfontsize',16);  
   set(0,'defaulttextfontsize',18);
   set(0,'defaulttextfontname','Arial');
@@ -7,62 +7,62 @@ function run_phi_versus_phistar_demo()
   set(0,'defaultlinemarkersize',4);
   
   dt_init         = 0.7; 
+  
+  test_gen_U( );
+
+  
+ 
+end
+
+function test_gen_U(phi_star,phi,img)
+
+if( nargin < 3 )
+  disp('no args received, attempting to load data file...');
+  data=load('initial_data_phi_phi-star_img.mat');
+  phi_star = data.phi_star;
+  phi      = data.phi2;
+  img      = data.img;
+end
+
+[X Y] = meshgrid(1:size(phi,2),1:size(phi,1));
+U  = zeros(size(phi));
+dU = zeros(size(phi));
+
+sfigure(1); hold on; imagesc(img); colormap bone;
+
+  for k = 1:1000
+    px = ( rand(1,1) * (size(U,2)) );
+    py = ( rand(1,1) * (size(U,2)) );
     
-  %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
-  %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
-  
-  %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
-  % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
-   
-  [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
-   sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
-  
-   [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
-   sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
-   
-  [Dval_alle t_alle] = run_core(     (1/(256)) ,dt_init);
-   sfigure(2); semilogy(t_alle,Dval_alle,'--','color',[0.9 0.4 .2]); 
-   
-   legend('\rho=(1/2)^{1/2}','\rho=(1/2)','\rho=(1/4)','\rho=(1/16)','\rho=(1/256)');
-   xlabel('time (sec)');
-   ylabel('labeling error');
-   title('Labeling Error: D(\phi,\phi^*)'); grid on;
-   
-   hold off;  
-   
-   save run_phi_versus_phistar_demo_BAK
-  
-end
+    h_of_u = exp( -( (X - px).^2 + (Y - py).^2 )/(sqrt(sqrt(numel(X(:)))) ) );
+    px     = round(px); px(px<1)=1;
+    py     = round(py); py(py<1)=1;
+    
+    dU = (phi_star(py,px) > 0).*(0 > phi(py,px) ) - ...
+            (phi_star(py,px) < 0).*(0 < phi(py,px) ); 
+    
+    if(abs(dU)>0)
+      
+      sfigure(1); hold on;
+      if( dU < 0 )
+        plot( px,py,'ro' );
+      elseif( dU > 0 )
+        plot( px,py,'gx' );
+      end
+      hold off;
 
-%load_and_plot_multi_rho( )
-function load_and_plot_multi_rho( )
-  files = {'bridge_demo_rho=0.0039062_19Dec2011-02-51.mat',...
-  'bridge_demo_rho=0.0625_19Dec2011-02-40.mat',...
-  'bridge_demo_rho=0.25_19Dec2011-02-22.mat',...
-  'bridge_demo_rho=0.5_19Dec2011-02-11.mat',...
-  'bridge_demo_rho=0.70711_19Dec2011-02-00.mat'};
-  sfigure(2); clf;  xlabel('time (sec)'); ylabel('labeling error');
-  N=numel(files);
-  for k = 1:N
-    data = load(files{k});
-    if(mod(k,2)==0)
-      sym='-.';
-    else
-      sym='--';
+      U  = U + h_of_u;
+      sfigure(2); imagesc(U); title('U'); drawnow;
     end
-    if(mod(k,3)==0)
-      sym='-';
-    end
-    semilogy(data.t_all,data.Dval_all,sym,'color',[(0.2+0.8*k/N) (0.4*(-1)^k+0.5)  1-k/N]); hold on;
+          
     fprintf('');
+    
   end
-  legend('\rho=1/64','\rho=1/16','\rho=1/4','\rho=1/2','\rho=1/2^{1/2}'); grid on;
-  axis([0 0.2 10^(-7) 10^4 ] ); hold off;
-  drawnow();
-  fprintf('');
+  
+  disp('done with test of U accumulate');
+  pause();
+
 end
-
-
 
 function [Dval_all t_all phi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
 % run demo func in-place:
