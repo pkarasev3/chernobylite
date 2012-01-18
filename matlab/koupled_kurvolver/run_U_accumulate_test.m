@@ -23,26 +23,30 @@ if( nargin < 3 )
   phi      = data.phi2;
   img      = data.img;
 end
+epsilon   = sqrt(2); %1.1;%0.8;
+Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
+delta     = @(z)  1 * (z == 0) + (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
 [X Y] = meshgrid(1:size(phi,2),1:size(phi,1));
 U  = zeros(size(phi));
 dU = zeros(size(phi));
 
-sfigure(1); hold on; imagesc(img); colormap bone;
+Umax = 3.0; dt = 0.1;
 
-  for k = 1:1000
+sfigure(1); hold on; imagesc(img); colormap bone;
+  k = 1; kmax = 1000;
+  while( k < kmax )
     px = ( rand(1,1) * (size(U,2)) );
     py = ( rand(1,1) * (size(U,2)) );
     
     h_of_u = exp( -( (X - px).^2 + (Y - py).^2 )/(sqrt(sqrt(numel(X(:)))) ) );
     px     = round(px); px(px<1)=1;
     py     = round(py); py(py<1)=1;
-    
     dU = (phi_star(py,px) > 0).*(0 > phi(py,px) ) - ...
-            (phi_star(py,px) < 0).*(0 < phi(py,px) ); 
-    
+            (phi_star(py,px) < 0).*(0 < phi(py,px) );     
     if(abs(dU)>0)
       
+      k = k+1;
       sfigure(1); hold on;
       if( dU < 0 )
         plot( px,py,'ro' );
@@ -52,16 +56,23 @@ sfigure(1); hold on; imagesc(img); colormap bone;
       hold off;
 
       U  = U + h_of_u;
-      sfigure(2); imagesc(U); title('U'); drawnow;
+      laplacian_of_U = 4*del2(U);
+      U = U + dt * laplacian_of_U .* ( Heavi( U - Umax ) + Heavi( -U - Umax ) );
+      sfigure(2); imagesc(U); title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ]); 
+      drawnow;
+      fprintf('');
+      
     end
-          
+    
+    
+    
     fprintf('');
     
   end
   
-  disp('done with test of U accumulate');
-  pause();
-
+  disp('done with test of U accumulate... saving');
+  save data_run_U_accumulate_test   U  Umax phi phi_star img 
+  !ls -ltrh ./data_run_U* 
 end
 
 function [Dval_all t_all phi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
