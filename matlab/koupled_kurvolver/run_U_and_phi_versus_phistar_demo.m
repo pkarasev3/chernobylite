@@ -1,4 +1,4 @@
-function run_phi_versus_phistar_demo()
+function run_U_and_phi_versus_phistar_demo()
   set(0,'defaultaxesfontsize',16);  
   set(0,'defaulttextfontsize',18);
   set(0,'defaulttextfontname','Arial');

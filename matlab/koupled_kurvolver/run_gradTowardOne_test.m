@@ -56,9 +56,10 @@ phi0 = phi;
       else
         dt0 = dt0 * (1 + 0.05*(dt0<(1e-1-0.05)));
       end
-      sfigure(2); imagesc(phi); title(['\phi, iter = ' num2str(k) ' of ' num2str(kmax) ... 
+      sfigure(2); imagesc(phi); title(['iter = ' num2str(k) ' of ' num2str(kmax) ... 
                                            ', t= ' num2str(t) ', Fval= ' num2str(Fval) ]); 
-      Fval_all(k) = Fval; sfigure(1); plot(Fval_all(1:k),'r-.');                                        
+                                               
+      Fval_all(k) = Fval; sfigure(1); plot(Fval_all(1:k),'r-.');  title('\int_{\Omega} (|\nabla \phi|^2-1|)^2  ');
       drawnow;
           
     fprintf('');
