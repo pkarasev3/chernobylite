@@ -95,7 +95,7 @@ img(img>1)=1;
 
 xy2     = [100,120]; xy1          = [120,92];
 
-RadInit = 15;
+RadInit = 25;%15;
 d1      = RadInit - sqrt( ((xx-xy1(1))).^2 + ((yy-xy1(2))).^2 );
 d2      = RadInit - sqrt( ((xx-xy2(1))).^2 + ((yy-xy2(2))).^2 );
 bUseLSM = true();

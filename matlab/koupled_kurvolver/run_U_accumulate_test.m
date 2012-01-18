@@ -44,8 +44,9 @@ sfigure(1); hold on; imagesc(img); colormap bone;
     py     = round(py); py(py<1)=1;
     dU = (phi_star(py,px) > 0).*(0 > phi(py,px) ) - ...
             (phi_star(py,px) < 0).*(0 < phi(py,px) );     
+    h_of_u = h_of_u * dU;
     if(abs(dU)>0)
-      
+      h_of_u = h_of_u * (k < kmax / 2 );
       k = k+1;
       sfigure(1); hold on;
       if( dU < 0 )
@@ -54,11 +55,13 @@ sfigure(1); hold on; imagesc(img); colormap bone;
         plot( px,py,'gx' );
       end
       hold off;
-
+      b_sharpness = 5; b = b_sharpness;
       U  = U + h_of_u;
-      laplacian_of_U = 4*del2(U);
-      U = U + dt * laplacian_of_U .* ( Heavi( U - Umax ) + Heavi( -U - Umax ) );
-      sfigure(2); imagesc(U); title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ]); 
+      laplacian_of_U = 4*del2(U); 
+      U = U + dt * (-U+laplacian_of_U) .* ( Heavi( (U - Umax) ) + Heavi( (-U - Umax) ) );
+      maxU = max(abs(U(:)));
+      sfigure(2); imagesc(U); title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ... 
+                                                            ', max(|U|)=' num2str(maxU) ]); 
       drawnow;
       fprintf('');
       
