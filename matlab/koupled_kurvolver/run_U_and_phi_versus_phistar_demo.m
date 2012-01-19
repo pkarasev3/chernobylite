@@ -180,16 +180,18 @@ MaxTime         = 0.25;
 dt_min          = 1e-3;
 
 rho             =  rho_argin; %(1/2); % 1/16 %(1/4);
-Umax            =  sqrt(Gmax)/sqrt(rho);% + 0*img;
-Umax_           =  2.0;
+Umax            =  sqrt(Gmax)/sqrt(rho);
+Umax_           =  5.0;
 U               =  0 * phi1;
 U_              =  0 * phi1;
 
-
+g_data_speed    =  0 * phi1;
+eta             =  0 * phi1;
+ 
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
-    k = 1;
-  while( k < 5 )
+  k = 1; num_inputs = 5;
+  while( k < num_inputs )
     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
                      (phi_star < 0).*(0 < phi2 ) )>0);
     if(numel(idx_u) < k )
@@ -201,13 +203,19 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
     h_of_u = exp( -( (xx - px).^2 + (yy - py).^2 )/(sqrt(sqrt(numel(xx(:)))) ) );
     dU = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
             (phi_star(py,px) < 0).*(0 < phi2(py,px) );     
+          
+    nominal_dynamics_effect = ( g_data_speed(py,px) * eta(py,px) < 0 );  
+    if( nominal_dynamics_effect > 0 )
+      fprintf('fixing nominal dynamics at x=%f, y=%f \n ',px, py );
+    end
+    dU = dU * nominal_dynamics_effect * abs(g_data_speed(py,px))*5.0/Gmax;
     h_of_u = h_of_u * dU;
     k = k+1;
     U_  = U_ + h_of_u;
     laplacian_of_U_ = 4*del2(U_);
     dt= 0.2;
-    U = U + dt * (-U_+laplacian_of_U_) .* ( Heavi( (U_ - Umax_) ) + Heavi( (-U_ - Umax_) ) );
-    maxU = max(abs(U(:)));  
+    U_ = U_ + dt * (-U_+laplacian_of_U_) .* ( Heavi( (U_ - Umax_) ) + Heavi( (-U_ - Umax_) ) );
+    curr_maxU_ = max(abs(U_(:)));  
   end
   
   U   = U_ * Umax / Umax_;
@@ -230,7 +238,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   C12=21;
   
   prev_phi2  = phi2;
-  [phi2 tb]  = update_phi( img, phi2, f_of_U,2);
+  [phi2 tb g_data_speed ]  = update_phi( img, phi2, f_of_U,2);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval_prv = Dval;
