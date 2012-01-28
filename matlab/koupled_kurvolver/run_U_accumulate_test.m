@@ -6,12 +6,16 @@ function run_U_accumulate_test()
   set(0,'defaultlinelinewidth',2);
   set(0,'defaultlinemarkersize',4);
   
-  dt_init         = 0.7; 
-  
+  dbstop if error;
+  addpath('~/source/chernobylite/matlab/util/');
+  addpath('~/source/chernobylite/matlab/display_helpers/');
+  addpath('~/source/chernobylite/matlab/LevelSetMethods/');
+  addpath('~/source/chernobylite/matlab/LSMlibPK/');
+ 
+ 
   test_gen_U( );
 
-  
- 
+
 end
 
 function test_gen_U(phi_star,phi,img)
@@ -34,7 +38,8 @@ dU = zeros(size(phi));
 Umax = 3.0; dt = 0.1;
 
 sfigure(1); hold on; imagesc(img); colormap bone;
-  k = 1; kmax = 1000;
+  k = 1; kmax = 1500;
+  Ucost = zeros(1,k);
   while( k < kmax )
     px = ( rand(1,1) * (size(U,2)) );
     py = ( rand(1,1) * (size(U,2)) );
@@ -46,7 +51,7 @@ sfigure(1); hold on; imagesc(img); colormap bone;
             (phi_star(py,px) < 0).*(0 < phi(py,px) );     
     h_of_u = h_of_u * dU;
     if(abs(dU)>0)
-      h_of_u = h_of_u * (k < kmax / 2 );
+      h_of_u = h_of_u * (k < kmax / 3 );
       k = k+1;
       sfigure(1); hold on;
       if( dU < 0 )
@@ -55,13 +60,18 @@ sfigure(1); hold on; imagesc(img); colormap bone;
         plot( px,py,'gx' );
       end
       hold off;
-      b_sharpness = 5; b = b_sharpness;
+      
       U  = U + h_of_u;
       laplacian_of_U = 4*del2(U); 
-      U = U + dt * (-U+laplacian_of_U) .* ( Heavi( (U - Umax) ) + Heavi( (-U - Umax) ) );
+      [Ux Uy]        = gradient(U);
+      normGradU      = (Ux.^2+Uy.^2);
+      dU= (laplacian_of_U) .* ( Heavi( (U.^2 - Umax.^2) ) ) - U .* delta( U.^2 - Umax.^2).*(1+ normGradU);
+      U = U + dt * dU;
       maxU = max(abs(U(:)));
-      sfigure(2); imagesc(U); title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ... 
+      Ucost(k) = eval_cost_of_U( U, Umax, normGradU );
+      sfigure(2); mesh(U); title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ... 
                                                             ', max(|U|)=' num2str(maxU) ]); 
+      sfigure(1); semilogy( Ucost );    title(' \Omega(t) = \int_\Omega H(U^2-U_{max}^2)(1+|\nabla U|^2)dx');                                                      
       drawnow;
       fprintf('');
       
@@ -74,8 +84,14 @@ sfigure(1); hold on; imagesc(img); colormap bone;
   end
   
   disp('done with test of U accumulate... saving');
-  save data_run_U_accumulate_test   U  Umax phi phi_star img 
+  save data_run_U_accumulate_test   U  Umax phi phi_star img Ucost
   !ls -ltrh ./data_run_U* 
+end
+
+function costU = eval_cost_of_U( U, Umax, normGradU )
+epsilon   = sqrt(2); %1.1;%0.8;
+Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
+  costU = 0.5 * trapz(trapz( Heavi(U.^2-Umax.^2).*(1+normGradU) ) );
 end
 
 function [Dval_all t_all phi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
