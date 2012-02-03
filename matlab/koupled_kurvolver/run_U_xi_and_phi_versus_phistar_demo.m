@@ -6,7 +6,7 @@ function run_U_xi_and_phi_versus_phistar_demo()
   set(0,'defaultlinelinewidth',2);
   set(0,'defaultlinemarkersize',4);
   
-  dt_init         = 0.5; 
+  dt_init         = 0.35; 
     
   %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
   %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
@@ -17,20 +17,20 @@ function run_U_xi_and_phi_versus_phistar_demo()
   [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
    sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
-   [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
-   sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
-   
-  [Dval_alle t_alle] = run_core(     (1/(256)) ,dt_init);
-   sfigure(2); semilogy(t_alle,Dval_alle,'--','color',[0.9 0.4 .2]); 
-   
-   legend('\rho=(1/2)^{1/2}','\rho=(1/2)','\rho=(1/4)','\rho=(1/16)','\rho=(1/256)');
-   xlabel('time (sec)');
-   ylabel('labeling error');
-   title('Labeling Error: D(\phi,\phi^*)'); grid on;
-   
-   hold off;  
-   
-   save run_phi_versus_phistar_demo_BAK
+%    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
+%    sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
+%    
+%   [Dval_alle t_alle] = run_core(     (1/(256)) ,dt_init);
+%    sfigure(2); semilogy(t_alle,Dval_alle,'--','color',[0.9 0.4 .2]); 
+%    
+%    legend('\rho=(1/2)^{1/2}','\rho=(1/2)','\rho=(1/4)','\rho=(1/16)','\rho=(1/256)');
+%    xlabel('time (sec)');
+%    ylabel('labeling error');
+%    title('Labeling Error: D(\phi,\phi^*)'); grid on;
+%    
+%    hold off;  
+%    
+%    save run_phi_versus_phistar_demo_BAK
   
 end
 
@@ -161,12 +161,12 @@ g_data_speed    =  0 * phi1;
 eta             =  0 * phi1;
 
 phi1            =  phi2;
-eta_prev = eta;
+eta_prev        = eta;
 
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
   
-  k = 1; num_inputs = 7;
+  k = 1; num_inputs = 3;
   while( k < num_inputs )  % User is the only place that reference phi_star exists ! 
     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
                      (phi_star < 0).*(0 < phi2 ) )>0);
@@ -176,7 +176,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
     idx_u   = idx_u( randperm(numel(idx_u)) );
     [py px] = ind2sub( size( phi2 ),idx_u(k) );
     
-    h_of_u = exp( -( (xx - px).^2 + (yy - py).^2 )/((1/k)*sqrt(sqrt(numel(xx(:)))) ) );
+    h_of_u = exp( -( (xx - px).^2 + (yy - py).^2 )/((1/2)*sqrt(sqrt(numel(xx(:)))) ) );
     dU = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
             (phi_star(py,px) < 0).*(0 < phi2(py,px) );     
           
@@ -197,19 +197,19 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   end
   
   U   = U_ * Umax / Umax_;
-  
+  [~, ~, ~, g_data_speed ]  = update_phi( img, phi1, phi2, 0*phi1, 0*phi1, 0);
   prev_phi1            = phi1;
   eta_prev             = eta;
   eta                  = (Heavi(phi1)-Heavi(phi2));
   
   eU                   = (Heavi(phi1)-Heavi(U));
-  alph1                = 1e-12;
-  f1                   = -(U.^2).*(eta);
-  f2                   = - rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
+  Del_eta              = 4*del2(eta);
+  f1                   = -(U.^2).*(eta - 1e-1*Del_eta);
+  f2                   = - 0; % rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
   f_phi                = f1 + f2;
   a2                   = Umax;
   a3                   = 0.1;
-  f_psi                = delta(phi1).*( a2*eta + a3 * eU .* (U).^2 ) ;
+  f_psi                = delta(phi1).*( a2*(eta-Del_eta) + a3 * eU .* (U).^2 ) ;
   
   maxPhi_maxU = [ max(max(abs(a2*eta))) ,  max(max(abs(a3*eU .* (U.^2)))) ]             %#ok<NASGU>
   prev_phi2  = phi2;
@@ -285,11 +285,13 @@ fprintf('result = %f \n',result);
     kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
     
     GofIandPhi = (Img - mu_i).^2 - (Img - mu_o).^2;
-    assert( max(abs(GofIandPhi(:)))  <= Gmax );
+    Gmax_now   = max(abs(GofIandPhi(:)));
+    assert( Gmax_now <= Gmax );
     g_alpha = GofIandPhi + f_phi;
     
+    lambda_now = lambda;
     g_source= -g_alpha + 0 * lambda * kappa_phi ;
-    dphi  = delta(phi) .* (-g_alpha + lambda * kappa_phi) ;
+    dphi  = delta(phi) .* (-g_alpha + lambda_now * kappa_phi) ;
     dpsi  = delta(psi) .* (-f_psi ) ;
     
     
@@ -300,13 +302,15 @@ fprintf('result = %f \n',result);
     dt_a  = dt0 / max(both_maxes);  
     phi   = phi + dt_a * dphi;
     psi   = psi + dt_a * dpsi;
+    
     if( redist_iters > 0 )
+      dX = 0.7;
       if( bUseLSM )
-        phi   =  reinitializeLevelSetFunction(phi,1,1.0,redist_iters,3,2,false() );
-        psi   =  reinitializeLevelSetFunction(psi,1,1.0,redist_iters,3,2,false() );
+        phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,2,false() );
+        psi   =  reinitializeLevelSetFunction(psi,1,dX,redist_iters,3,2,false() );
       else
-        phi =  reinit_SD(phi, 1, 1, dt0, 'ENO3', redist_iters);
-        psi =  reinit_SD(psi, 1, 1, dt0, 'ENO3', redist_iters);
+        phi =  reinit_SD(phi, 1.2, dX, dt0, 'ENO3', redist_iters);
+        psi =  reinit_SD(psi, 1.2, dX, dt0, 'ENO3', redist_iters);
       end
     end
     fprintf('');
@@ -325,8 +329,7 @@ fprintf('result = %f \n',result);
     imgg( abs( phi1 ) < phi_show_thresh ) = 0;
     %imgb( abs( phi2 ) < phi_show_thresh ) = 0;
     %imgb( abs( phi1 ) < phi_show_thresh ) = 0;
-    
-    imgb( abs(U)>5 ) = (imgb(abs(U)>5)/2 + abs(U(abs(U)>5))/max(abs(U(:))) );
+    %imgb( abs(U)>5 ) = (imgb(abs(U)>5)/2 + abs(U(abs(U)>5))/max(abs(U(:))) );
     
     imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
       abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
@@ -345,7 +348,7 @@ fprintf('result = %f \n',result);
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     sh=sfigure(1); subplot(1,2,2); imshow(img_show);
     title(['image and contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt), ' steps = ' num2str_fixed_width(steps) ]);
-    setFigure(sh,[10 10],3.5,1.9);
+    setFigure(sh,[10 10],4.4,2.2);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
     %imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);

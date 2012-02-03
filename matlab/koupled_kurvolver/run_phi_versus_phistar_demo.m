@@ -331,6 +331,7 @@ fprintf('result = %f \n',result);
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
     
+    %kappa_phi(1:numel(phi)) = anti_kappa(phi,1:numel(phi));
     kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
     
     GofIandPhi = (Img - mu_i).^2 - (Img - mu_o).^2;
