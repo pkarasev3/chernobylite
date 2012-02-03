@@ -34,7 +34,13 @@ sfigure(1); clf; sfigure(2); clf;
 dt0 = 1e-1;
 phi0 = phi;
 
-  k = 1; kmax = 1000;
+phi = phi + randn(size(phi))*1e-2 * max(abs(phi(:)));
+
+phi_interior = phi(2:(end-1),2:(end-1));
+phi = 0*phi + min(phi(:));
+phi(2:(end-1),2:(end-1)) = phi_interior;
+
+  k = 1; kmax = 10000;
   t = 0;
   Fval_all = zeros(1,kmax);
   Fval     = eval_gradOne_dist(phi);
@@ -43,11 +49,14 @@ phi0 = phi;
     
       k    = k+1;
       rhs  = gradTowardsOne(phi);
-      dt   = dt0 / (max(abs(rhs(:))) + 1e-15);
+      
+      rhs_ = rhs(2:(end-1),2:(end-1));
+      
+      dt   = dt0 / (max(abs(rhs_(:))) + 1e-15);
       t    = t + dt;
       Fval0=Fval;
       phi_prv = phi;
-      phi  = phi + dt * rhs;
+      phi(2:(end-1),2:(end-1))  = phi(2:(end-1),2:(end-1)) + dt * rhs_;
       Fval = eval_gradOne_dist(phi);
       if( Fval > Fval0 )
         phi = phi_prv;
@@ -56,11 +65,14 @@ phi0 = phi;
       else
         dt0 = dt0 * (1 + 0.05*(dt0<(1e-1-0.05)));
       end
-      sfigure(2); imagesc(phi); title(['iter = ' num2str(k) ' of ' num2str(kmax) ... 
-                                           ', t= ' num2str(t) ', Fval= ' num2str(Fval) ]); 
-                                               
-      Fval_all(k) = Fval; sfigure(1); plot(Fval_all(1:k),'r-.');  title('\int_{\Omega} (|\nabla \phi|^2-1|)^2  ');
-      drawnow;
+      dt0 = max([dt0,1e-2]);
+      if( 1 ) % mod(k,50)==0 )
+        sfigure(2); imagesc(phi); title(['iter = ' num2str(k) ' of ' num2str(kmax) ... 
+                                             ', t= ' num2str(t) ', Fval= ' num2str(Fval) ]); 
+
+        Fval_all(k) = Fval; sfigure(1); semilogy(Fval_all(1:k),'r-.');  title('\int_{\Omega} (|\nabla \phi|^2-1|)^2  ');
+        drawnow;
+      end
           
     fprintf('');
     

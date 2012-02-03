@@ -249,15 +249,16 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval_prv = Dval;
+  K_beta   = 1.0; % trapz(trapz( delta(phi2).^2 ) );
   Dval     = eval_label_dist(phi1,phi2);
   Dval_all = [Dval_all, Dval];        %#ok<AGROW>
   Beta1     = trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
                                   trapz(trapz( 2 * ( (Heavi(phi1)).^2+(Heavi(phi2)).^2 ) ) );
-             Beta2 = 0.7 * trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
-                                   trapz(trapz( eta.^2 ) );                                
+             Beta2 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
+                                   ( K_beta + 0.5 * trapz(trapz( eta.^2 ) ) );                                
   Beta     = Beta2;                                
   Beta_all = [Beta_all Beta];
-  deltaD   = (Dval-Dval_all(end-1));
+  deltaD   = (Dval-Dval_all(end-1))/dt;
   DeltaD_all = [DeltaD_all, deltaD];  DeltaD_all(1) = DeltaD_all(2);
   fprintf('\nDval = %f , D`= %f, -Beta(t)D(t) = %f, \n',Dval, deltaD,  -Beta*Dval );
   Dval_pred = eval_label_dist(phi1,phi2_pred);
@@ -393,7 +394,7 @@ fprintf('result = %f \n',result);
     
     %imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
         
-    Dbound = Dval_all(1) * exp( -cumtrapz(Beta_all) );
+    Dbound = [Dval_all(1), Dval_all(2) * exp( -cumtrapz(Beta_all(2:end)*dt) )];
     
     sfigure(1); subplot(1,2,1);
     semilogy( t_all,Dval_all,'r-.' ); hold on;
