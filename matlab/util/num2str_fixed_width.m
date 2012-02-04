@@ -5,8 +5,17 @@ if( nargin < 2 )
 end
 
 str_num = num2str(k);
-while( numel(str_num) < num_chars )
-  str_num = ['0' str_num]; %#ok<AGROW>
+if( norm( k - round(k) ) < 1e-9 )
+  while( numel(str_num) < num_chars )
+    str_num = ['0' str_num]; %#ok<AGROW>
+  end
+else % if it is floating point ...
+  while( numel(str_num) < num_chars )
+    str_num = [str_num '0']; %#ok<AGROW>
+  end
+  while( numel(str_num) > num_chars )
+    str_num = [str_num(1:end-1)]; %#ok<AGROW>
+  end
 end
 
 end

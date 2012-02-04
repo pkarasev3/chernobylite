@@ -6,7 +6,7 @@ function run_U_xi_and_phi_versus_phistar_demo()
   set(0,'defaultlinelinewidth',2);
   set(0,'defaultlinemarkersize',4);
   
-  dt_init         = 0.35; 
+  dt_init         = sqrt(2)/2; 
     
   %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
   %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
@@ -36,9 +36,9 @@ end
 
 
 
-function [Dval_all t_all phi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
+function [Dval_all t_all psi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
 % run demo func in-place:
-% [phi1 phi2 img_show] = run_lskk_demo();
+% [psi1 phi2 img_show] = run_lskk_demo();
 
 dbstop if error;
 addpath('~/source/chernobylite/matlab/util/');
@@ -91,7 +91,7 @@ else
   
 end
 
-phi1 = phi_star;
+psi1 = phi_star;
 
 if( ~exist('initial_data_phi_phi-star_img.mat','file' ) )
   save('initial_data_phi_phi-star_img.mat','phi_star','phi2','img');
@@ -126,8 +126,9 @@ img_show_init = img * 0;
 phi2_init     = 0 * img;
 phi2_mid      = 0 * img;
 
-lambda     = 2*mean(abs(img(:)))^2;
-kappa_phi  = 0*phi1;
+lambda     = mean(abs(img(:)))^2;
+kappa_phi  = 0*psi1;
+kappa_psi  = 0*psi1;
 delta_rel1 = [1];
 delta_rel2 = [1];
 delta_abs1 = [1];
@@ -136,14 +137,18 @@ delta_abs2 = [1];
 t_all      = [0];
 relTol     = 1e-4;
 absTol     = 1e2;
-phi_show_thresh = 0.95;
+phi_show_thresh = max([0.95,epsilon/2.0]);
 tsum            = 0;
-U               = 0 * phi1;
+U               = 0 * psi1;
 eps_u           = 1e-1;
 steps           = 0;
 MaxSteps        = 500;
-Dval            = eval_label_dist(phi1,phi2);
+psi1            = imfilter(phi2,fspecial('gaussian'),'replicate'); % with observer, we start out equal ... no "ground truth"
+Dval            = eval_label_dist(psi1,phi2);
 Dval_all        = [Dval];
+Norm_eU_all     = [0.5];     
+Norm_U_all      = [0.5];     
+deltasqr_vol_all= sqrt([trapz(trapz((delta(psi1)).^2))]);
 
 Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
 
@@ -154,19 +159,20 @@ dt_min          = 1e-3;
 rho             =  rho_argin; %(1/2); % 1/16 %(1/4);
 Umax            =  sqrt(Gmax)/sqrt(rho);
 Umax_           =  5.0;
-U               =  0 * phi1;
-U_              =  0 * phi1;
+U               =  0 * psi1;
+U_              =  0 * psi1;
 
-g_data_speed    =  0 * phi1;
-eta             =  0 * phi1;
+g_data_speed    =  0 * psi1;
+eta             =  0 * psi1;
 
-phi1            =  phi2;
 eta_prev        = eta;
 
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
-  
-  k = 1; num_inputs = 3;
+  num_inputs = max([2,floor(5 * dt0/0.5)]);
+  k = 1; 
+  U_ = U / Umax * Umax_;
+  U_prev = U_;
   while( k < num_inputs )  % User is the only place that reference phi_star exists ! 
     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
                      (phi_star < 0).*(0 < phi2 ) )>0);
@@ -176,80 +182,85 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
     idx_u   = idx_u( randperm(numel(idx_u)) );
     [py px] = ind2sub( size( phi2 ),idx_u(k) );
     
-    h_of_u = exp( -( (xx - px).^2 + (yy - py).^2 )/((1/2)*sqrt(sqrt(numel(xx(:)))) ) );
-    dU = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
+    curr_BW = 1e-1 + min([sqrt(3^2),abs( phi_star(py,px) - phi2(py,px) )]);
+    
+    % add in to h_of_u for better metrics... (img(py,px)-img).^2 .* 
+    h_of_u = exp( -( (xx - px).^2 + (yy - py).^2 )/(curr_BW)  );
+    u_in   = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
             (phi_star(py,px) < 0).*(0 < phi2(py,px) );     
-          
-    % nominal_dynamics_effect  = (phi_star(py,px)<epsilon).*(phi2(py,px)>0); %
-    nominal_dynamics_effect    = ( g_data_speed(py,px) * eta(py,px) < 0 );  
-    % nominal_dynamics_effect = ( abs(eta_prev(py,px)) < abs(eta(py,px)) );
-    dU = dU * nominal_dynamics_effect * abs(g_data_speed(py,px))*5.0/Gmax;
-    h_of_u = h_of_u * dU;
+    if( (k >= 3) && ( curr_BW < epsilon ) )
+      u_in = 0; % they dont click if its doing good
+    elseif ( curr_BW <= epsilon/2 )
+      u_in = 0; % they dont click if its doing good
+    end
+    
+    u_in = u_in * Umax_/Gmax;
+    h_of_u = h_of_u * u_in;
     k = k+1;
     U_  = U_ + h_of_u;
-    laplacian_of_U_ = 4*del2(U_);
-    dt= 0.2;
-    U_ = U_ + dt * (-U_+laplacian_of_U_) .* ( Heavi( (U_ - Umax_) ) + Heavi( (-U_ - Umax_) ) );
+
+    dtU= 0.25;
+    laplacian_of_U = 4*del2(U_); 
+    [Ux Uy]        = gradient(U_);
+    normGradU      = (Ux.^2+Uy.^2);
+    dU= (laplacian_of_U) .* ( Heavi( (U_.^2 - 5*Umax_.^2) ) ) - U_ .* delta( U_.^2 - 5*Umax_.^2).*(1+ normGradU);
+    U_ = U_ + dtU * dU;
+    
     curr_maxU_ = max(abs(U_(:)));  
-     if( nominal_dynamics_effect > 0 )
+     if( abs(u_in) > 0 )
       fprintf('fixing nominal dynamics at x=%f, y=%f, max(U_)=%f \n ',px, py,curr_maxU_);
     end
   end
   
-  U   = U_ * Umax / Umax_;
-  [~, ~, ~, g_data_speed ]  = update_phi( img, phi1, phi2, 0*phi1, 0*phi1, 0);
-  prev_phi1            = phi1;
-  eta_prev             = eta;
-  eta                  = (Heavi(phi1)-Heavi(phi2));
+  U   = U_ / Umax_ * Umax;
+  [~, ~, ~, gval ]  = update_phi( img, psi1, phi2, 0*psi1, 0*psi1, 0);
+    
+  % Doesnt hold now assert( sum( U(:) < sqrt( abs(gval(:))/(rho) ) ) == 0 );
   
-  eU                   = (Heavi(phi1)-Heavi(U));
+  prev_psi1            = psi1;
+  eta_prev             = eta;
+  eta                  = (Heavi(psi1)-Heavi(phi2));
+  
+  eU                   = (Heavi(psi1)-Heavi(U));
   Del_eta              = 4*del2(eta);
-  f1                   = -(U.^2).*(eta - 1e-1*Del_eta);
-  f2                   = - 0; % rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
+  f1                   = -(U.^2).*(eta);
+  f2                   = rho*(U.^2).*Del_eta; % rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
   f_phi                = f1 + f2;
   a2                   = Umax;
-  a3                   = 0.1;
-  f_psi                = delta(phi1).*( a2*(eta-Del_eta) + a3 * eU .* (U).^2 ) ;
-  
-  maxPhi_maxU = [ max(max(abs(a2*eta))) ,  max(max(abs(a3*eU .* (U.^2)))) ]             %#ok<NASGU>
+  a3                   = 1e-1;
+  f_psi                = delta(psi1).*( a2*(eta) + a3 * eU .* (U).^2 );
+  %f_psi                = f_psi * max(abs(f_phi(:)))/max(abs(f_psi(:)));
+ 
+  maxPhi_maxU = [ max(max(abs(a2*eta))) ,  max(max(abs(a3*eU .* (U.^2)))) ]  ;           %#ok<NASGU>
   prev_phi2  = phi2;
-  [phi1 phi2 tb g_data_speed ]  = update_phi( img, phi1, phi2, f_psi, f_phi, 2);
+  redist_iters = round(2*dt0/0.5); redist_iters = min([3,max([redist_iters,1])]);
+  [psi1 phi2 tb g_data_speed ]  = update_phi( img, psi1, phi2, f_psi, f_phi, redist_iters );
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
-  Dval_prv = Dval;
-  Dval     = eval_label_dist(phi1,phi2);
-  Dval_all = [Dval_all, Dval];                                      %#ok<AGROW>
+  Dval_prv    = Dval;
+  Dval        = eval_label_dist(psi1,phi2);
+  Norm_eUsqrd = (trapz(trapz( (Heavi(psi1)-Heavi(U)).^2 ) ));
+  Norm_eU_all = [Norm_eU_all, sqrt(Norm_eUsqrd)];
+  Norm_U_all  = [Norm_U_all,  sqrt( trapz(trapz( U.^2 ) ) )];
+  deltasqr_vol= sqrt(trapz(trapz( (delta(phi2) ).^2 ) ));
+  deltasqr_vol_all = [deltasqr_vol_all, deltasqr_vol];
+  Dval_all    = [Dval_all, Dval];                                      %#ok<AGROW>
   fprintf('\nDval = %f\n',Dval);
-  
-%   bBadDval = false();
-%   if( Dval > Dval_prv )
-%     fprintf('Warning, Dval did not decrease, previous value %f !? ',Dval_prv);
-%     bBadDval = true();
-%   end
-%   if( bBadDval ) % If D failed to shrink, get the previous phi, redistance a bit, reduce the time step
-%     dt0 = max([dt_min, dt0 - 2e-1*dt0]);
-%     phi2      = prev_phi2;
-%     phi2      = reinit_SD(phi2,     1, 1, 0.25, 'ENO3', 2);
-%     phi1      = reinit_SD(phi1, 1, 1, 0.25, 'ENO3', 2);
-%     fprintf(', dt0 = %f \n', dt0 );
-%     fprintf('');
-%   else           % Raise time-step back up if we're shrinking
-%     dt0 = min([dt0+1.3e-1*dt0, dt_init]);
-%   end
   
   tt         = tt + tb;
   tsum       = tsum + tb;
   t_all      = [t_all, tt]; %#ok<*AGROW>
-  delta_abs1 = [delta_abs1, norm( prev_phi1(:) - phi1(:) )];
+  delta_abs1 = [delta_abs1, norm( prev_psi1(:) - psi1(:) )];
   delta_abs2 = [delta_abs2, norm( prev_phi2(:) - phi2(:) )];
-  delta_rel1 = [delta_rel1, delta_abs1(end)/norm(phi1(:))];
+  delta_rel1 = [delta_rel1, delta_abs1(end)/norm(psi1(:))];
   delta_rel2 = [delta_rel2, delta_abs2(end)/norm(phi2(:))];
   
+  dt0        = dt_init * (1 - exp( -delta_abs1(end)/sqrt(deltasqr_vol) ) ) ; 
+  dt0        = max([dt0,0.05]);
   
-  
-  overlap_cost = overlap(phi1,phi2);
-  emptygap_cost= emptygap(phi1,phi2,5) + emptygap(phi2,phi1,5);
-  fprintf('\n overlap cost = %f. empty-gap cost = %f,',overlap_cost,emptygap_cost);
+  %overlap_cost = overlap(psi1,phi2);
+  %emptygap_cost= emptygap(psi1,phi2,5) + emptygap(phi2,psi1,5);
+  % fprintf('\n overlap cost = %f. empty-gap cost = %f,',overlap_cost,emptygap_cost);
   
   % setup display image
   displayLevelSets();
@@ -262,15 +273,15 @@ fprintf('result = %f \n',result);
 
   function res = save_all( )
     fprintf('done! saving .... \n');
-    save run_openloop_bridge_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 rho_argin... 
-                             phi2_init phi2_mid img_show_mid img_show_init phi1 phi2 img img_show U tt xx yy  steps Dval_all 
+    save run_whole_shebang_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 rho_argin... 
+                             phi2_init phi2_mid img_show_mid img_show_init psi1 phi2 img img_show U tt xx yy  steps Dval_all 
     setenv('rhoval',num2str(rho_argin))
-    !cp -v run_openloop_bridge_demo.mat  "bridge_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
+   % !cp -v run_whole_shebang_demo.mat  "bridge_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
     res = 1;                               
   end
   function [Dval] = eval_label_dist( phiA, phiB )                             
     
-    Dval = trapz(trapz( (Heavi(phiA)-Heavi(phiB)).^2 ) );
+    Dval = 0.5 * trapz(trapz( (Heavi(phiA)-Heavi(phiB)).^2 ) );
     
   end
                              
@@ -283,6 +294,7 @@ fprintf('result = %f \n',result);
     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
     
     kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
+    kappa_psi(1:numel(psi)) = kappa(psi,1:numel(psi));
     
     GofIandPhi = (Img - mu_i).^2 - (Img - mu_o).^2;
     Gmax_now   = max(abs(GofIandPhi(:)));
@@ -292,7 +304,7 @@ fprintf('result = %f \n',result);
     lambda_now = lambda;
     g_source= -g_alpha + 0 * lambda * kappa_phi ;
     dphi  = delta(phi) .* (-g_alpha + lambda_now * kappa_phi) ;
-    dpsi  = delta(psi) .* (-f_psi ) ;
+    dpsi  = delta(psi) .* (-f_psi   + lambda_now * kappa_psi) ;
     
     
     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
@@ -300,11 +312,11 @@ fprintf('result = %f \n',result);
     
     both_maxes = [max(abs(dphi(:))), max(abs(dpsi(:)))]; % max of dphi and dpsi
     dt_a  = dt0 / max(both_maxes);  
-    phi   = phi + dt_a * dphi;
-    psi   = psi + dt_a * dpsi;
+    phi   = phi + dt_a * dphi ;
+    psi   = psi + dt_a * dpsi ;
     
     if( redist_iters > 0 )
-      dX = 0.7;
+      dX = 1/sqrt(2);
       if( bUseLSM )
         phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,2,false() );
         psi   =  reinitializeLevelSetFunction(psi,1,dX,redist_iters,3,2,false() );
@@ -324,16 +336,16 @@ fprintf('result = %f \n',result);
     imgg = img_show(:,:,2);
     imgr = img_show(:,:,1);
     
-    % zero out the non-active colors for phi1 (active red), phi2 (active green)
+    % zero out the non-active colors for psi1 (active red), phi2 (active green)
     imgr( abs( phi2 ) < phi_show_thresh ) = 0;
-    imgg( abs( phi1 ) < phi_show_thresh ) = 0;
+    imgg( abs( psi1 ) < phi_show_thresh ) = 0;
     %imgb( abs( phi2 ) < phi_show_thresh ) = 0;
-    %imgb( abs( phi1 ) < phi_show_thresh ) = 0;
+    %imgb( abs( psi1 ) < phi_show_thresh ) = 0;
     %imgb( abs(U)>5 ) = (imgb(abs(U)>5)/2 + abs(U(abs(U)>5))/max(abs(U(:))) );
     
-    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
-      abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
+    imgr( abs( psi1 ) < phi_show_thresh) = (imgr( abs( psi1 ) < phi_show_thresh) .* ... 
+      abs( psi1(abs(psi1) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1 * (phi_show_thresh - abs( psi1(abs(psi1) < phi_show_thresh ) ) )/phi_show_thresh );
     
     imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
       abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
@@ -347,19 +359,35 @@ fprintf('result = %f \n',result);
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     sh=sfigure(1); subplot(1,2,2); imshow(img_show);
-    title(['image and contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt), ' steps = ' num2str_fixed_width(steps) ]);
-    setFigure(sh,[10 10],4.4,2.2);
-    fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
+    title(['image and contours, ||U||_2=' num2str(norm(U)) ', t=' num2str_fixed_width(tt,7), ... 
+             ', steps = ' num2str_fixed_width(steps), ', dt = ' num2str_fixed_width(dt0) ]);
+    setFigure(sh,[10 10],3.52,1.76);
+    fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(psi1(:))),tt, steps);
     
     %imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
         
     
     sfigure(1); subplot(1,2,1);
     semilogy( t_all,Dval_all,'r-.' ); hold on;
+    semilogy( t_all,deltasqr_vol_all,'b-' ); 
     hold off;
-    legend('D(\phi,\phi^*)'); xlabel('time (sec)');
-    title('labeling error');
-    
+    legend('D(\phi,\psi)','||\delta(\phi)||_{L2}');
+    xlabel('time (sec)');
+    title('error signals and narrow-band-volume bound');
+    sh2=sfigure(2);  
+    setFigure(sh2,[1200 10],1.3,2.7);
+    subplot(3,1,1);
+    plot( t_all,Norm_eU_all,'g-.'); hold on;
+    plot( t_all,Norm_U_all,'b--');  hold off; 
+    legend('||e_U||_{L2}','||U||_{L2}'); 
+    xlabel('time (sec)');
+    title('e_U and U norms');
+    sfigure(2);  subplot(3,1,2);
+    mesh( U/(1e-5+mean(abs(U(:)))) ); axis([1 256 1 256 0 Umax]); 
+    title('U(x,t)'); xlabel('x'); ylabel('y');
+    sfigure(2);  subplot(3,1,3);
+    mesh( U_-U_prev ); axis([1 256 1 256 -max(U_(:)) max(U_(:)) ]); 
+    title('k to k+1 change in U'); xlabel('x'); ylabel('y');
     
     if( steps == 10 )
       phi2_init = phi2;
