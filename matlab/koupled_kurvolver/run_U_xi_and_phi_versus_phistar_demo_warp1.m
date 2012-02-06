@@ -1,4 +1,4 @@
-function run_U_xi_and_phi_versus_phistar_demo()
+function run_U_xi_and_phi_versus_phistar_demo_warp1()
   set(0,'defaultaxesfontsize',16);  
   set(0,'defaulttextfontsize',18);
   set(0,'defaulttextfontname','Arial');
@@ -117,6 +117,8 @@ sfigure(1); subplot(2,1,2);  plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b
 
 
 tt = 0;
+img  = histeq( abs( img - median(img(:)) ) );
+img  = img - mean(img(:));
 img0 = img;
 img  = imfilter( img * 255, fspecial('gaussian',[5 5],1),'replicate');
 img  = img - mean(img(:));
@@ -165,14 +167,14 @@ f_phi=0*phi2;
 phi0 = phi2;
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
-  num_inputs = 5;
+  num_inputs = 40;
   k = 1; 
   U_ = U ; %/ Umax * Umax_;
   h_of_u_sum = 0*U;
      
   while( k < num_inputs )  % User is the only place that reference phi_star exists ! 
     phi0rightsign = ( (phi_star .* phi0) >= epsilon/2 );
-    stucknearphi0bdry = (phi_star.*phi0>=-epsilon).*(phi2.*phi0<=0);
+    stucknearphi0bdry = 1+0*(phi_star.*phi0>=-epsilon).*(phi2.*phi0<=0);
     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
                      (phi_star < 0).*(0 < phi2 ) ).* ... 
    max( phi0rightsign , stucknearphi0bdry ) >0 );
@@ -281,7 +283,7 @@ fprintf('result = %f \n',result);
 
   function res = save_all( )
     fprintf('done! saving .... \n');
-    save run_whole_shebang_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 rho_argin... 
+    save run_whole_shebang_demo_warp1 t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 rho_argin... 
                              phi2_init phi2_mid img_show_mid img_show_init psi1 phi2 img img_show U tt xx yy  steps Dval_all 
     setenv('rhoval',num2str(rho_argin))
    % !cp -v run_whole_shebang_demo.mat  "bridge_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
