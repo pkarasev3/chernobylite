@@ -14,7 +14,7 @@ function run_U_xi_and_phi_versus_phistar_demo()
   %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
+  [Dval_allc t_allc] = run_core(     1/4 ,dt_init);
 %    sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
 %    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
@@ -151,28 +151,32 @@ Norm_eU_all     = [0.5];
 Norm_U_all      = [0.5];     
 deltasqr_vol_all= sqrt([trapz(trapz((delta(psi1)).^2))]);
 
+eta_integral    = 0 * phi2;
+
 Gmax            = (min(img(:))-mean(img(:))).^2 + (max(img(:))-mean(img(:))).^2; % maximum the G(\phi,I) term can ever be
 
 dt0             = dt_init;
 MaxTime         = 0.25;
 
 rho             =  rho_argin; %(1/2); % 1/16 %(1/4);
-Umax            =  Gmax;%sqrt(Gmax)/sqrt(rho);
+Umax            =  sqrt(Gmax)/sqrt(rho);
 Umax_           =  Umax; %//5.0;
 
 [~, ~, ~, gval ]  = update_phi( img, psi1, phi2, 0*psi1, 0*psi1, 0);
 f_phi=0*phi2;
 phi0 = phi2;
-while( (tt < MaxTime) && (steps < MaxSteps) )
+while( (tt < MaxTime) || (steps < MaxSteps) )
   
   num_inputs = 5;
   k = 1; 
   U_ = U ; %/ Umax * Umax_;
   h_of_u_sum = 0*U;
+  
+  % eta_integral = eta_integral + 0.25 * ( Heavi(phi2) - Heavi(phi_star) );
      
-  while( k < num_inputs )  % User is the only place that reference phi_star exists ! 
+  while( (steps > 50) && (k < num_inputs) )  % User is the only place that reference phi_star exists ! 
     phi0rightsign = ( (phi_star .* phi0) >= epsilon/2 );
-    stucknearphi0bdry = (phi_star.*phi0>=-epsilon).*(phi2.*phi0<=0);
+    stucknearphi0bdry = 1+(phi_star.*phi0>=-epsilon).*(phi2.*phi0<=0);
     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
                      (phi_star < 0).*(0 < phi2 ) ).* ... 
    max( phi0rightsign , stucknearphi0bdry ) >0 );
@@ -183,17 +187,22 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
     [py px] = ind2sub( size( phi2 ),idx_u(k) );
     curr_BW = 7;
     
+%     if( (steps < 100) && (isempty( intersect(py,142:166) ) || ...
+%                           isempty( intersect(px,115:150) ) ) )
+%         continue;                
+%     end
+    
     % add in to h_of_u for better metrics... (img(py,px)-img).^2 .* 
     %h_of_u = Heavi( (curr_BW - ( ( (xx - px).^2 + (yy - py).^2 ) ) ) );
     h_of_u   = exp( -( (xx - px).^2 + (yy - py).^2 )/curr_BW );
     u_in   = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
             (phi_star(py,px) < 0).*(0 < phi2(py,px) );
     curr_err = abs( phi_star(py,px) - phi2(py,px) );          
-    if ( (curr_err <= epsilon) )
-              u_in = 0; % they dont click if its doing good
-    end
+%     if ( (curr_err <= 2*epsilon ) )
+%               u_in = 0; % they dont click if its doing good
+%     end
     
-    h_of_u = h_of_u * u_in * Umax * 1e-3;
+    h_of_u = h_of_u * u_in * Umax * 5e-2;
     k = k+1;
     U_  = U_ + h_of_u;
     
@@ -223,11 +232,11 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   
   prev_psi1            = psi1;
   eta                  = (Heavi(psi1)-Heavi(phi2)); 
-  Del_eta              = 4*del2(eta);
+  %Del_eta              = 4*del2(eta);
   f1                   = -(U.^2).*(eta);
   %f2                   =  rho*(U.^2).*Del_eta; % rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
   kappa_eta(:)         = kappa(eta,1:numel(eta(:)));
-  f2                   = -lambda*kappa_eta;
+  f2                   = rho*Gmax*kappa_eta;
   f_phi                = f1 + f2;
     
   prev_phi2  = phi2;
@@ -236,10 +245,10 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   [psi1 phi2 tb1 gval ]  = update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
   eta                  = (Heavi(psi1)-Heavi(phi2)); 
   eU                   = (Heavi(psi1)-Heavi(U)).*(U.^2);
-  a2                   = Umax*1e-1;
+  a2                   = Gmax*1e-1;
   a3                   = 1e-1;
-  kappa_eta(:)         = kappa(eta,1:numel(eta(:)));
-  f_psi                = -( eU )*a3 - (eta) * a2 + lambda*kappa_eta;
+  %kappa_eta(:)         = kappa((psi1-phi2),1:numel(eta(:)));
+  f_psi                = -( eU )*a3 - eta * a2 + 0*kappa_eta;
   [psi1 phi2 tb2 ~ ]  = update_psi( img, psi1, phi2, f_psi, 0*f_phi, redist_iters );
   tb = max([tb1 tb2]);
   fprintf('max f_phi = %f, max f_psi = %f with Phi part %f \n',...
@@ -297,7 +306,7 @@ function  [psi phi dt_a g_source] = update_psi( Img, psi, phi, f_psi, f_phi,...
                                                redist_iters)
     g_source = 0*phi;   
     kappa_psi(1:numel(psi)) = kappa(psi,1:numel(psi));
-    lambda_now = lambda;
+    lambda_now = 0*lambda;
     dpsi  = delta(psi) .* ( f_psi   + lambda_now * kappa_psi) ;    
     both_maxes = [max(abs(dpsi(:)))]; % max of dphi and dpsi
     dt_a  = dt0 / max(both_maxes);  
@@ -305,7 +314,7 @@ function  [psi phi dt_a g_source] = update_psi( Img, psi, phi, f_psi, f_phi,...
     if( redist_iters > 0 )
       dX = 1/sqrt(2);
       if( bUseLSM )
-        psi   =  reinitializeLevelSetFunction(psi,1,dX,redist_iters,3,2,false() );
+        psi   =  reinitializeLevelSetFunction(psi,1,dX,redist_iters,3,3,false() );
       else
         psi =  reinit_SD(psi, 1.2, dX, dt0, 'ENO3', redist_iters);
       end
@@ -323,7 +332,7 @@ end
     assert( Gmax_now <= Gmax );
     g_alpha = GofIandPhi + f_phi;
     
-    lambda_now = lambda;
+    lambda_now = 0*lambda;
     g_source= -delta(phi) .*g_alpha;
     dphi  = delta(phi) .* (-g_alpha +lambda_now * kappa_phi) ;
     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
@@ -336,7 +345,7 @@ end
     if( redist_iters > 0 )
       dX = 1/sqrt(2);
       if( bUseLSM )
-        phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,2,false() );
+        phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,3,false() );
       else
         phi =  reinit_SD(phi, 1.2, dX, dt0, 'ENO3', redist_iters);
       end

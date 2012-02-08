@@ -25,6 +25,10 @@ function K = kappa(phi, p)
   dxx = Dxx(phi); dyy = Dyy(phi); dxy = Dxy(phi);
 
   K = (dx2.*dyy + dy2.*dxx - 2*dx.*dy.*dxy)./(dx2 + dy2 + eps);
+  
+  % Note: Poincare in L1, for phi with compact support, says:
+  % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )
+  
 end
 
 function ind = safe_sub2ind(sz, rr, cc)

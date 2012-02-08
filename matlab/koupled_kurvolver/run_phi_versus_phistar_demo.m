@@ -6,7 +6,7 @@ function run_phi_versus_phistar_demo()
   set(0,'defaultlinelinewidth',2);
   set(0,'defaultlinemarkersize',4);
   
-  dt_init         = 0.7; 
+  dt_init         = 0.5; 
     
   %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
   %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
@@ -14,8 +14,8 @@ function run_phi_versus_phistar_demo()
   %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
-   sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
+  [Dval_allc t_allc] = run_core(     1/1 ,dt_init);
+   %sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
 %    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
 %    sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
@@ -154,7 +154,7 @@ img_show_init = img * 0;
 phi2_init     = 0 * img;
 phi2_mid      = 0 * img;
 
-lambda     = 2*mean(abs(img(:)))^2;
+lambda     = 0 * 2*mean(abs(img(:)))^2;
 kappa_phi  = 0*phi1;
 delta_rel1 = [1];
 delta_rel2 = [1];
@@ -164,7 +164,7 @@ delta_abs2 = [1];
 t_all      = [0];
 relTol     = 1e-4;
 absTol     = 1e2;
-phi_show_thresh = 0.95;
+phi_show_thresh = epsilon;
 tsum            = 0;
 U               = 0 * phi1;
 eps_u           = 1e-1;
@@ -182,7 +182,7 @@ DeltaD_all      = [0];
 %         (2)  D(t)  <= D_0 exp(-\int_0^t Beta(s)ds)
 
 Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
-
+dX              = 1/sqrt(2);
 dt0             = dt_init;
 MaxTime         = 0.25;
 dt_min          = 1e-3;
@@ -196,28 +196,7 @@ dt=dt0;
 
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
-%     k = 1;
-%   while( k < 5 )
-%     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
-%                      (phi_star < 0).*(0 < phi2 ) )>0);
-%     if(numel(idx_u) < k )
-%       break;
-%     end
-%     idx_u   = idx_u( randperm(numel(idx_u)) );
-%     [py px] = ind2sub( size( phi2 ),idx_u(k) );
-%     
-%     h_of_u = exp( -( (xx - px).^2 + (yy - py).^2 )/(sqrt(sqrt(numel(xx(:)))) ) );
-%     dU = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
-%             (phi_star(py,px) < 0).*(0 < phi2(py,px) );     
-%     h_of_u = h_of_u * dU;
-%     k = k+1;
-%     U_  = U_ + h_of_u;
-%     laplacian_of_U_ = 4*del2(U_);
-%     dt= 0.2;
-%     U = U + dt * (-U_+laplacian_of_U_) .* ( Heavi( (U_ - Umax_) ) + Heavi( (-U_ - Umax_) ) );
-%     maxU = max(abs(U(:)));  
-%   end
-  
+ 
  
   
   prev_phi1            = phi1;
@@ -227,18 +206,20 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   
   bForceBigU_Everywhere = true();
   if( bForceBigU_Everywhere )
-    U   = max(sqrt(abs(gval)/rho),U); 
+    U      = sqrt(Gmax/rho) + 1 + 0 * max(sqrt(abs(gval)/rho),U); 
   else
     U   = U_ * Umax / Umax_;
   end
   
-  assert( sum( U(:) < sqrt( abs(gval(:))/(rho) ) ) == 0 );
+  %assert( sum( U(:) < sqrt( abs(gval(:))/(rho) ) ) == 0 );
   
   
   eta                  = (Heavi(phi1)-Heavi(phi2));
   alph1                = 1e-12;
   f1                   = -(U.^2).*(eta);
-  f2                   = - rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
+  %f2                   = - rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
+  kappa_eta            = reshape( kappa( eta,1:numel(eta) ), size(eta) );
+  f2                   = Gmax*(kappa_eta);
   f_of_U               = f1 + f2; 
   
   C21=delta(phi2*0.5).*f_of_U;
@@ -249,14 +230,15 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval_prv = Dval;
-  K_beta   = 1.0; % trapz(trapz( delta(phi2).^2 ) );
+  K_beta   = 0.5*trapz(trapz( delta(phi2).^2 ) );
   Dval     = eval_label_dist(phi1,phi2);
   Dval_all = [Dval_all, Dval];        %#ok<AGROW>
   Beta1     = trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
                                   trapz(trapz( 2 * ( (Heavi(phi1)).^2+(Heavi(phi2)).^2 ) ) );
-             Beta2 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
-                                   ( K_beta + 0.5 * trapz(trapz( eta.^2 ) ) );                                
-  Beta     = Beta2;                                
+  Beta2 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
+                           ( K_beta + 0.5 * trapz(trapz( eta.^2 ) ) );
+  Beta3 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) ;
+  Beta     = Beta3 / Dval;                                
   Beta_all = [Beta_all Beta];
   deltaD   = (Dval-Dval_all(end-1))/dt;
   DeltaD_all = [DeltaD_all, deltaD];  DeltaD_all(1) = DeltaD_all(2);
@@ -269,18 +251,20 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   elseif( Dval_pred < Dval )
     fprintf('Warning, Dval rate worse with f(U), predicted value %f !? ',Dval_pred);
   end
-  if( bBadDval ) % If D failed to shrink, get the previous phi, redistance a bit, reduce the time step
-    dt0 = max([dt_min, dt0 - 2e-1*dt0]);
-    phi2      = prev_phi2;
-    %phi2     = reinitializeLevelSetFunction(phi2,1,1,2,3,2); 
-    phi2      = reinit_SD(phi2,     1, 1, 0.25, 'ENO3', 2);
-    phi_star  = reinit_SD(phi_star, 1, 1, 0.25, 'ENO3', 2);
-    phi1      = phi_star;
-    fprintf(', dt0 = %f \n', dt0 );
-    fprintf('');
-  else           % Raise time-step back up if we're shrinking
-    dt0 = min([dt0+1.3e-1*dt0, dt_init]);
-  end
+  
+%  This is ghetto, irrelevant  
+%   if( bBadDval ) % If D failed to shrink, get the previous phi, redistance a bit, reduce the time step
+%     dt0 = max([dt_min, dt0 - 2e-1*dt0]);
+%     phi2      = prev_phi2;
+%     %phi2     = reinitializeLevelSetFunction(phi2,1,1,2,3,2); 
+%     phi2      = reinit_SD(phi2,     dX, dX, 0.25, 'ENO3', 3);
+%     phi_star  = reinit_SD(phi_star, dX, dX, 0.25, 'ENO3', 3);
+%     phi1      = phi_star;
+%     fprintf(', dt0 = %f \n', dt0 );
+%     fprintf('');
+%   else           % Raise time-step back up if we're shrinking
+%     dt0 = min([dt0+1.3e-1*dt0, dt_init]);
+%   end
   
   if( ~bBadDval )
     tt         = tt + ta + tb;
@@ -290,11 +274,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
     delta_abs2 = [delta_abs2, norm( prev_phi2(:) - phi2(:) )];
     delta_rel1 = [delta_rel1, delta_abs1(end)/norm(phi1(:))];
     delta_rel2 = [delta_rel2, delta_abs2(end)/norm(phi2(:))];
-
-    overlap_cost = overlap(phi1,phi2);
-    emptygap_cost= emptygap(phi1,phi2,5) + emptygap(phi2,phi1,5);
-    fprintf('\n overlap cost = %f. empty-gap cost = %f,',overlap_cost,emptygap_cost);
-
+    
     % setup display image
     displayLevelSets();
   else
@@ -349,7 +329,7 @@ fprintf('result = %f \n',result);
     phi   = phi + dt_a * dphi;
     if( redist_iters > 0 )
       if( bUseLSM )
-        phi   =  reinitializeLevelSetFunction(phi,1,1.0,redist_iters,3,2,false() );
+        phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,5,3,false() );
       else
         phi =  reinit_SD(phi, 1, 1, dt0, 'ENO3', redist_iters);
       end
@@ -374,12 +354,12 @@ fprintf('result = %f \n',result);
     %imgb( abs(U)>5 ) = (imgb(abs(U)>5)/2 + abs(U(abs(U)>5))/max(abs(U(:))) );
     
     imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
-      abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
+      abs( phi1(abs(phi1) < phi_show_thresh ).^2 )/phi_show_thresh^2  + ...
+      1 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ).^2 ) )/phi_show_thresh^2 );
     
     imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
-      abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
+      abs( phi2(abs(phi2) < phi_show_thresh ).^2 )/phi_show_thresh^2  + ...
+      1 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ).^2 ) )/phi_show_thresh^2 );
     
    
      
@@ -395,11 +375,11 @@ fprintf('result = %f \n',result);
     
     %imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
         
-    Dbound = [Dval_all(1), Dval_all(2) * exp( -cumtrapz(Beta_all(2:end)*dt) )];
-    
+    Dbound = [Dval_all(1), Dval_all(2) * exp( -cumtrapz(Beta_all(2:end)) )];
+    Dbound(Dbound<1e-3) = 1e-3; 
     sfigure(1); subplot(1,2,1);
     semilogy( t_all,Dval_all,'r-.' ); hold on;
-    semilogy( t_all,Dbound,'g--' );
+    % semilogy( t_all,Dbound,'g--' );
     hold off;
     legend('D(\phi,\phi^*)','Analytic Bound'); xlabel('time (sec)');
     title('labeling error');
