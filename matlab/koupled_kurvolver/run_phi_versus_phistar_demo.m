@@ -74,7 +74,7 @@ ngradXi  = ( (uw_xi.IxCenterDiff).^2 + (uw_xi.IyCenterDiff).^2 ).^(1/2) + 1e-99;
 uw_Hphi  = upwindTerms( Heavi(phi2) );
 ngradHphi= ( (uw_Hphi.IxCenterDiff).^2 + (uw_Hphi.IyCenterDiff).^2 ).^(1/2) + 1e-99;
 
-kappa_eta= kappaSecondOrder(eta,dX);
+kappa_eta= kappaSecondOrder(delta(phi2).^2.*eta,dX);
 HxiX     = (uw_Hphi.IxCenterDiff .* uw_xi.IxCenterDiff)./(ngradXi);
 HxiY     = (uw_Hphi.IyCenterDiff .* uw_xi.IyCenterDiff)./(ngradXi);
 
@@ -248,11 +248,12 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   end
   
   eta                  = (Heavi(phi1)-Heavi(phi2));
-  alph1                = 1e-12;
+  
   f1                   = -(U.^2).*(eta);
   % kappa_eta            = reshape( kappa( eta,1:numel(eta), dX ), size(eta) );
-  kappa_eta            = (1/2)*kappaSecondOrder(eta,dX);
-  f2                   = Gmax*(kappa_eta);
+  kappa_eta            = (1/2)*kappaSecondOrder(delta(phi2).^2 .* eta,dX); %#ok<NASGU>
+  kappa_d2eta          = (1/2)*kappaSecondOrder(eta,dX);
+  f2                   = Gmax*(kappa_d2eta);
  
   f_of_U               = f1 + f2; assert( sum(isnan(f_of_U(:))) == 0 );
   
