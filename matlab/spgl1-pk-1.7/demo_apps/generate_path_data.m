@@ -33,14 +33,14 @@ integrator_mtrx = gallery('triw',npts,1,npts)';
 ax = zeros(npts,1);
 ay = zeros(npts,1);
 delta_uv_prv = [0;0];
-%num_turns = (randn(1,1) > 0 ) * (-1)  + (randn(1,1) > 0 ) * (-1) + 5
-num_turns = nturns_goal
+num_turns = (randn(1,1) > 0 ) * (-1)  + (randn(1,1) > 0 ) * (-1) + 5
+%num_turns = nturns_goal
 for k = 2:npts
   
-  lambda = 1;
+  lambda = 2;
   sum2switch = sum2switch + 1*poissrnd(lambda,1,1);
   
-  if( (k < npts*0.95) && sum2switch > npts/num_turns )
+  if( (k < npts*0.9) && sum2switch > npts/num_turns )
     idx_switch = [idx_switch, k-1]; %#ok<AGROW>
     sum2switch = 0;
     delta_uv=zeros(2,1);
@@ -136,7 +136,7 @@ H = sparse(H);
 ell_zero_norm = 100;
 ell_zero_max  = 6;
 ell_zero_min  = 1;
-max_iters     = 20;
+max_iters     = 40;
 iter          = 0;
 thresh_sigma  = 0.3;
 
@@ -147,7 +147,7 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
 
   iter = iter+1;
   if( ell_zero_norm > ell_zero_max )
-    thresh_sigma = 1.1 * thresh_sigma
+    thresh_sigma = 1.05 * thresh_sigma
   else
     thresh_sigma = 0.9 * thresh_sigma
   end
@@ -166,8 +166,8 @@ while( (ell_zero_norm > ell_zero_max   || ell_zero_norm < ell_zero_min ) && iter
           %minimize(norm(ay,1)+norm(ax,1))
 
           subject to
-          ones(1,npts)*(Ey.^2) <= max_err_y
-          ones(1,npts)*(Ex.^2) <= max_err_x  
+          ones(1,npts)*(Ex.^2+Ey.^2) <= max_err_x+max_err_y
+          
 
           % Extra 'slack' goes into velocities
           Ax == A*vx+dt*(ax)

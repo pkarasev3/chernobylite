@@ -1,5 +1,8 @@
-function K = kappa(phi, p)
+function K = kappa(phi, p, dX)
   
+  if( nargin < 3 )
+    dX = 1.0;
+  end
   [rr cc] = ind2sub(size(phi), p);
 
   % shift operations
@@ -13,11 +16,11 @@ function K = kappa(phi, p)
   shiftDR = @(M) M(safe_sub2ind(size(phi), rr+1, cc+1));
 
   % derivative operations
-  Dx  = @(M) (shiftL(M) - shiftR(M))/2;
-  Dy  = @(M) (shiftU(M) - shiftD(M))/2;
-  Dxx = @(M) (shiftL(M) - 2*M(p) + shiftR(M));
-  Dyy = @(M) (shiftU(M) - 2*M(p) + shiftD(M));
-  Dxy = @(M) (shiftUL(M) + shiftDR(M) - shiftUR(M) - shiftDL(M))/4;
+  Dx  = @(M) (shiftL(M) - shiftR(M))/(2*dX);
+  Dy  = @(M) (shiftU(M) - shiftD(M))/(2*dX);
+  Dxx = @(M) (shiftL(M) - 2*M(p) + shiftR(M))/(dX^2);
+  Dyy = @(M) (shiftU(M) - 2*M(p) + shiftD(M))/(dX^2);
+  Dxy = @(M) (shiftUL(M) + shiftDR(M) - shiftUR(M) - shiftDL(M))/(4*dX^2);
   
   % derivatives
   dx  = Dx(phi);  dy  = Dy(phi);

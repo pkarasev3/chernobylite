@@ -64,6 +64,35 @@ end
 
 
 
+function [integral1 integral2 ngradHphi ngradXi] = check_integrals( eta, phi2, epsilon,dX)
+Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) <= epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
+delta     = @(z)  (abs(z) <= epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+deltaPrime= @(z)  (abs(z) <= epsilon).*(-pi/(2*epsilon^2) * sin(pi*z/epsilon));
+% % Check integral analytic answer, use higher order derivatives (and upwind)
+uw_xi    = upwindTerms( eta );
+ngradXi  = ( (uw_xi.IxCenterDiff).^2 + (uw_xi.IyCenterDiff).^2 ).^(1/2) + 1e-99;
+uw_Hphi  = upwindTerms( Heavi(phi2) );
+ngradHphi= ( (uw_Hphi.IxCenterDiff).^2 + (uw_Hphi.IyCenterDiff).^2 ).^(1/2) + 1e-99;
+
+kappa_eta= kappaSecondOrder(eta,dX);
+HxiX     = (uw_Hphi.IxCenterDiff .* uw_xi.IxCenterDiff)./(ngradXi);
+HxiY     = (uw_Hphi.IyCenterDiff .* uw_xi.IyCenterDiff)./(ngradXi);
+
+fa       = -(1/2)*delta(phi2).^2 .* ngradXi ;
+fb       = -deltaPrime(phi2).*eta.*(HxiX + HxiY) ;
+integral1=  trapz(trapz( dX^2 * delta(phi2).^2 .* eta .* kappa_eta ) );
+integral2=  trapz(trapz( dX^2 *(fa + fb) ) );
+
+causch1     = (trapz(trapz( (HxiX+HxiY).^2 * dX^2) ) )^(1/2);
+causch2     = (trapz(trapz( deltaPrime(phi2).^2 .* eta.^2 *dX^2 ) ) )^(1/2);
+intfb_bound = causch1 * causch2;
+
+intfa    = dX^2 *trapz(trapz(fa)); intfb     = dX^2 *trapz(trapz(fb));
+fprintf('Good Part: %f, Bad Part: %f, BadPart_Bound: %f \n', intfa, intfb, intfb_bound ); 
+fprintf('Check int1: %f , int2: %f \n', integral1, integral2);
+fprintf('');
+end
+
 function [Dval_all t_all phi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
 % run demo func in-place:
 % [phi1 phi2 img_show] = run_lskk_demo();
@@ -129,8 +158,10 @@ end
 sfigure(1); clf;
 
 epsilon   = sqrt(2); %1.1;%0.8;
-Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
-delta     = @(z)  1 * (z == 0) + (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) <= epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
+delta     = @(z)  (abs(z) <= epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+deltaPrime= @(z)  (abs(z) <= epsilon).*(-pi/(2*epsilon^2) * sin(pi*z/epsilon));
+
 
 % the cost of overlap that we want to shrink
 overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );
@@ -139,8 +170,10 @@ overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );
 gap_pointwise_cost  = @(p1,p2,qE)  ( (Heavi(p1+qE) - Heavi(p1)).*(1-Heavi(p2)) ).^2;
 emptygap            = @(p1,p2,qE)  trapz(trapz(  gap_pointwise_cost(p1,p2,qE) ) );
 
-x=linspace(-1,1,100);
-sfigure(1); subplot(2,1,2);  plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); hold off;
+x=linspace(-2*epsilon,2*epsilon,1000);
+sfigure(1); 
+plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); 
+plot(x,deltaPrime(x),'m-.'); plot(x,deltaPrime(x).*delta(x),'m.'); hold off;
 
 
 
@@ -182,7 +215,7 @@ DeltaD_all      = [0];
 %         (2)  D(t)  <= D_0 exp(-\int_0^t Beta(s)ds)
 
 Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
-dX              = 1/sqrt(2);
+dX              = 0.97/sqrt(2);
 dt0             = dt_init;
 MaxTime         = 0.25;
 dt_min          = 1e-3;
@@ -194,14 +227,17 @@ U               =  0 * phi1;
 U_              =  0 * phi1;
 dt=dt0;
 
+
+
+
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
- 
- 
+  
+  [i1 i2 ngH ngx]      = check_integrals( eta, phi2,epsilon,dX);                                      %#ok<ASGLU>
   
   prev_phi1            = phi1;
   g_gain               = 1e1;
-  [phi2_pred ta gval]  = update_phi( img, phi2, 0 * phi2,0); ta = 0*ta; % Time only steps on tb!!
+  [phi2_pred ta gval]  = update_phi( img, phi2, 0 * phi2,0); ta = 0*ta; 
   phi1                 = phi_star;
   
   bForceBigU_Everywhere = true();
@@ -211,22 +247,21 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
     U   = U_ * Umax / Umax_;
   end
   
-  %assert( sum( U(:) < sqrt( abs(gval(:))/(rho) ) ) == 0 );
-  
-  
   eta                  = (Heavi(phi1)-Heavi(phi2));
   alph1                = 1e-12;
   f1                   = -(U.^2).*(eta);
-  %f2                   = - rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
-  kappa_eta            = reshape( kappa( eta,1:numel(eta) ), size(eta) );
+  % kappa_eta            = reshape( kappa( eta,1:numel(eta), dX ), size(eta) );
+  kappa_eta            = (1/2)*kappaSecondOrder(eta,dX);
   f2                   = Gmax*(kappa_eta);
-  f_of_U               = f1 + f2; 
+ 
+  f_of_U               = f1 + f2; assert( sum(isnan(f_of_U(:))) == 0 );
   
   C21=delta(phi2*0.5).*f_of_U;
   C12=21;
   
   prev_phi2  = phi2;
-  [phi2 tb]  = update_phi( img, phi2, f_of_U,2);
+  iters_sd   = 2 * (Dval_all(end) > 1.0);
+  [phi2 tb]  = update_phi( img, phi2, f_of_U,iters_sd);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval_prv = Dval;
@@ -238,7 +273,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   Beta2 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
                            ( K_beta + 0.5 * trapz(trapz( eta.^2 ) ) );
   Beta3 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) ;
-  Beta     = Beta3 / Dval;                                
+  Beta     = Beta3 / Dval * dt;                                
   Beta_all = [Beta_all Beta];
   deltaD   = (Dval-Dval_all(end-1))/dt;
   DeltaD_all = [DeltaD_all, deltaD];  DeltaD_all(1) = DeltaD_all(2);
@@ -251,20 +286,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   elseif( Dval_pred < Dval )
     fprintf('Warning, Dval rate worse with f(U), predicted value %f !? ',Dval_pred);
   end
-  
-%  This is ghetto, irrelevant  
-%   if( bBadDval ) % If D failed to shrink, get the previous phi, redistance a bit, reduce the time step
-%     dt0 = max([dt_min, dt0 - 2e-1*dt0]);
-%     phi2      = prev_phi2;
-%     %phi2     = reinitializeLevelSetFunction(phi2,1,1,2,3,2); 
-%     phi2      = reinit_SD(phi2,     dX, dX, 0.25, 'ENO3', 3);
-%     phi_star  = reinit_SD(phi_star, dX, dX, 0.25, 'ENO3', 3);
-%     phi1      = phi_star;
-%     fprintf(', dt0 = %f \n', dt0 );
-%     fprintf('');
-%   else           % Raise time-step back up if we're shrinking
-%     dt0 = min([dt0+1.3e-1*dt0, dt_init]);
-%   end
+
   
   if( ~bBadDval )
     tt         = tt + ta + tb;
@@ -379,9 +401,9 @@ fprintf('result = %f \n',result);
     Dbound(Dbound<1e-3) = 1e-3; 
     sfigure(1); subplot(1,2,1);
     semilogy( t_all,Dval_all,'r-.' ); hold on;
-    % semilogy( t_all,Dbound,'g--' );
+   
     hold off;
-    legend('D(\phi,\phi^*)','Analytic Bound'); xlabel('time (sec)');
+    legend('D(\phi,\phi^*)'); xlabel('time (sec)');
     title('labeling error');
     
     sfigure(2); 
