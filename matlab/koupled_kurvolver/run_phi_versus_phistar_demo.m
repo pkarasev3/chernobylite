@@ -14,7 +14,7 @@ function run_phi_versus_phistar_demo()
   %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     1/4 ,dt_init);
+  [Dval_allc t_allc] = run_core(     1/1 ,dt_init);
    %sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
 %    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
@@ -63,6 +63,35 @@ function load_and_plot_multi_rho( )
 end
 
 
+
+function [integral1 integral2 ngradHphi ngradXi] = check_integrals( eta, phi2, epsilon,dX)
+Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) <= epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
+delta     = @(z)  (abs(z) <= epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+deltaPrime= @(z)  (abs(z) <= epsilon).*(-pi/(2*epsilon^2) * sin(pi*z/epsilon));
+% % Check integral analytic answer, use higher order derivatives (and upwind)
+uw_xi    = upwindTerms( eta );
+ngradXi  = ( (uw_xi.IxCenterDiff).^2 + (uw_xi.IyCenterDiff).^2 ).^(1/2) + 1e-99;
+uw_Hphi  = upwindTerms( Heavi(phi2) );
+ngradHphi= ( (uw_Hphi.IxCenterDiff).^2 + (uw_Hphi.IyCenterDiff).^2 ).^(1/2) + 1e-99;
+
+kappa_eta= kappaSecondOrder(eta,dX);
+HxiX     = (uw_Hphi.IxCenterDiff .* uw_xi.IxCenterDiff)./(ngradXi);
+HxiY     = (uw_Hphi.IyCenterDiff .* uw_xi.IyCenterDiff)./(ngradXi);
+
+fa       = -(1/2)*delta(phi2).^2 .* ngradXi ;
+fb       = -deltaPrime(phi2).*eta.*(HxiX + HxiY) ;
+integral1=  trapz(trapz( dX^2 * delta(phi2).^2 .* eta .* kappa_eta ) );
+integral2=  trapz(trapz( dX^2 *(fa + fb) ) );
+
+causch1     = (trapz(trapz( (HxiX+HxiY).^2 * dX^2) ) )^(1/2);
+causch2     = (trapz(trapz( deltaPrime(phi2).^2 .* eta.^2 *dX^2 ) ) )^(1/2);
+intfb_bound = causch1 * causch2;
+
+intfa    = dX^2 *trapz(trapz(fa)); intfb     = dX^2 *trapz(trapz(fb));
+fprintf('Good Part: %f, Bad Part: %f, BadPart_Bound: %f \n', intfa, intfb, intfb_bound ); 
+fprintf('Check int1: %f , int2: %f \n', integral1, integral2);
+fprintf('');
+end
 
 function [Dval_all t_all phi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
 % run demo func in-place:
@@ -128,23 +157,23 @@ end
 
 sfigure(1); clf;
 
-epsilon   = 1; %1.1;%0.8;
+epsilon   = sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) <= epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) <= epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
-a_rglrz   = 5e-1*epsilon;
-f_rglrz   = @(z)  delta(z) ./( delta(z).^2 + a_rglrz^2 );
+deltaPrime= @(z)  (abs(z) <= epsilon).*(-pi/(2*epsilon^2) * sin(pi*z/epsilon));
+
+
+% the cost of overlap that we want to shrink
+overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );
 
 % the cost of empty-gap to shrink. note: not symmetric!
 gap_pointwise_cost  = @(p1,p2,qE)  ( (Heavi(p1+qE) - Heavi(p1)).*(1-Heavi(p2)) ).^2;
 emptygap            = @(p1,p2,qE)  trapz(trapz(  gap_pointwise_cost(p1,p2,qE) ) );
 
-x=linspace(-3,3,1000);
-sfigure(1); subplot(2,1,1);
-plot(x,Heavi(x),'r--'); hold on; 
-plot(x,delta(x),'b-.'); 
-plot(x,delta(x).*f_rglrz(x),'.','Color',[0.5 0.1 0.7]);
-hold off; legend('Heavi','delta','delta * f_ rglrz');
-subplot(2,1,2); plot(x,f_rglrz(x),'+','Color',[0.1 0.5 0.7]); legend('f_ rglrz');
+x=linspace(-2*epsilon,2*epsilon,1000);
+sfigure(1); 
+plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); 
+plot(x,deltaPrime(x),'m-.'); plot(x,deltaPrime(x).*delta(x),'m.'); hold off;
 
 
 
@@ -186,7 +215,7 @@ DeltaD_all      = [0];
 %         (2)  D(t)  <= D_0 exp(-\int_0^t Beta(s)ds)
 
 Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
-dX              = 1/sqrt(2);
+dX              = 0.97/sqrt(2);
 dt0             = dt_init;
 MaxTime         = 0.25;
 dt_min          = 1e-3;
@@ -197,25 +226,18 @@ Umax_           =  2.0;
 U               =  0 * phi1;
 U_              =  0 * phi1;
 dt=dt0;
-dbstop if error;
+
+
+
 
 while( (tt < MaxTime) && (steps < MaxSteps) )
   
-   %int1 = trapz(trapz( phi1.*(delta(phi2) ).^2 ) );
-   %int2 = trapz(trapz( (delta(phi2).*f_rglrz(phi2) ).*phi1) );
-%    int3 = trapz(trapz( eta.*(delta(phi2) ).^2 ) );
-%    int4 = trapz(trapz( 2/a_rglrz*(delta(phi2).*f_rglrz(phi2) ).*eta ) );
-%    fprintf('int3= %f ,  int4= %f \n',int3,int4);
-% %    
-%    %assert( abs( int2 ) > abs( int1 ) ); % one should be larger!
-%    assert( abs( int4 ) > abs( int3 ) ); % one should be larger!
-% %    
-   %assert( int1 * int2 >= 0 ); % should be same sign! 
-  % assert( int3 * int4 >= 0 ); % should be same sign! 
+  
+  [i1 i2 ngH ngx]      = check_integrals( eta, phi2,epsilon,dX);                                      %#ok<ASGLU>
   
   prev_phi1            = phi1;
   g_gain               = 1e1;
-  [phi2_pred ta gval]  = update_phi( img, phi2, 0 * phi2,0); ta = 0*ta; % Time only steps on tb!!
+  [phi2_pred ta gval]  = update_phi( img, phi2, 0 * phi2,0); ta = 0*ta; 
   phi1                 = phi_star;
   
   bForceBigU_Everywhere = true();
@@ -226,30 +248,32 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   end
   
   eta                  = (Heavi(phi1)-Heavi(phi2));
+  alph1                = 1e-12;
   f1                   = -(U.^2).*(eta);
-  kappa_eta            = reshape( kappa( eta,1:numel(eta), dX ), size(eta) );
-  f2                   = rho*Gmax*(kappa_eta);
-  
-  %alph                 = 0.5;
-  %regularizer          = 1 ./ (alph + delta(phi2(delta(phi2)>0))).^2;
-  %f2(delta(phi2)>0 )   = f2(delta(phi2)>0) .* regularizer;
-  %f3                   = delta(phi2).*f2;
-  %f2(delta(phi2)>2e-1) = f2(delta(phi2)>2e-1) ./ delta(phi2(delta(phi2)>2e-1));
-  f2_                  = f2;                          %#ok<NASGU>
-  f2                   = f2 .* ( 2/a_rglrz * f_rglrz(phi2) );
+  % kappa_eta            = reshape( kappa( eta,1:numel(eta), dX ), size(eta) );
+  kappa_eta            = (1/2)*kappaSecondOrder(eta,dX);
+  f2                   = Gmax*(kappa_eta);
+ 
   f_of_U               = f1 + f2; assert( sum(isnan(f_of_U(:))) == 0 );
   
+  C21=delta(phi2*0.5).*f_of_U;
+  C12=21;
+  
   prev_phi2  = phi2;
-  [phi2 tb]  = update_phi( img, phi2, f_of_U,2);
+  iters_sd   = 2 * (Dval_all(end) > 1.0);
+  [phi2 tb]  = update_phi( img, phi2, f_of_U,iters_sd);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval_prv = Dval;
-  
+  K_beta   = 0.5*trapz(trapz( delta(phi2).^2 ) );
   Dval     = eval_label_dist(phi1,phi2);
   Dval_all = [Dval_all, Dval];        %#ok<AGROW>
- 
+  Beta1     = trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
+                                  trapz(trapz( 2 * ( (Heavi(phi1)).^2+(Heavi(phi2)).^2 ) ) );
+  Beta2 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) / ... 
+                           ( K_beta + 0.5 * trapz(trapz( eta.^2 ) ) );
   Beta3 =  trapz(trapz( delta(phi2).^2 .* eta.^2 ) ) ;
-  Beta     = Beta3 / Dval ;                                
+  Beta     = Beta3 / Dval * dt;                                
   Beta_all = [Beta_all Beta];
   deltaD   = (Dval-Dval_all(end-1))/dt;
   DeltaD_all = [DeltaD_all, deltaD];  DeltaD_all(1) = DeltaD_all(2);
@@ -257,9 +281,10 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
   Dval_pred = eval_label_dist(phi1,phi2_pred);
   bBadDval = false();
   if( Dval > Dval_prv )
-    %fprintf('Warning, Dval did not decrease, previous value %f !? ',Dval_prv);
+    fprintf('Warning, Dval did not decrease, previous value %f !? ',Dval_prv);
     bBadDval = true();
- 
+  elseif( Dval_pred < Dval )
+    fprintf('Warning, Dval rate worse with f(U), predicted value %f !? ',Dval_pred);
   end
 
   
@@ -319,14 +344,14 @@ fprintf('result = %f \n',result);
     dphi  = delta(phi) .* (-g_alpha + lambda * kappa_phi) ;
     
     
-%     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
-%       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
+    fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
+      mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
     
     dt_a  = dt0 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     phi   = phi + dt_a * dphi;
     if( redist_iters > 0 )
       if( bUseLSM )
-        phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,2,false() );
+        phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,5,3,false() );
       else
         phi =  reinit_SD(phi, 1, 1, dt0, 'ENO3', redist_iters);
       end

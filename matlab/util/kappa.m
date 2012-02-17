@@ -1,4 +1,4 @@
-function [K dx dy dxx dyy dxy normGrad] = kappa(phi, p, dX)
+function K = kappa(phi, p, dX)
   
   if( nargin < 3 )
     dX = 1.0;
@@ -28,7 +28,7 @@ function [K dx dy dxx dyy dxy normGrad] = kappa(phi, p, dX)
   dxx = Dxx(phi); dyy = Dyy(phi); dxy = Dxy(phi);
 
   K = (dx2.*dyy + dy2.*dxx - 2*dx.*dy.*dxy)./(dx2 + dy2 + eps);
-  normGrad = (dx2 + dy2 + eps).^(1/2);
+  
   % Note: Poincare in L1, for phi with compact support, says:
   % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )
   
