@@ -36,7 +36,7 @@ dX    = 1/epsilon;
 U     = zeros(size(phi)); % U_t = h(u_k) + div( D(U,\mathbf{x}) \cdot gradU ), nonlinear diffusion
 Uraw  = zeros(size(phi)); % what would happen if U_t = h(u_k);
 
-Umax = 10.0; dt = 2/Umax;
+Umax = 10.0; dt = dX/Umax;
 
 sfigure(1); hold on; imagesc(img); colormap bone; axis('xy'); 
   k = 1; kmax = 1200;
@@ -77,7 +77,7 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
       Uraw = Uraw + h_of_u;
       sub_iters = 5;
       for iters = 1:sub_iters
-        [normGradU Ux Uy] = gradSecondOrder(U, dX); %#ok<ASGLU>
+        [normGradU Ux Uy] = gradSecondOrder(imfilter(U,fspecial('gaussian'),'replicate'), dX); %#ok<ASGLU>
         diffusionTermX           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Ux;
         diffusionTermY           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Uy;
 
