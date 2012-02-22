@@ -58,7 +58,7 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
         uk   = 0;
       end
       
-      h_of_u = uk*exp( -(0.125/alpha)*( (X - px).^2 + (Y - py).^2 ) ).*exp( -alpha^2*(img(py,px)-img).^2 );
+      h_of_u = uk*exp( -(0.125/alpha)*( (X - px).^2 + (Y - py).^2 ) ).*exp( -alpha*(img(py,px)-img).^2 );
       sh=sfigure(1);  %#ok<NASGU>
       %setFigure( sh,[1200,512],1.8,1.8); % bizarre, this slows down big time?!
       imagesc(img); hold on; axis('xy'); 
@@ -75,7 +75,7 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
 
       
       Uraw = Uraw + h_of_u;
-      sub_iters = 3;
+      sub_iters = 5;
       for iters = 1:sub_iters
         [normGradU Ux Uy] = gradSecondOrder(U, dX); %#ok<ASGLU>
         diffusionTermX           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Ux;
@@ -85,7 +85,7 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
         [~, diffYX, diffYY]      = gradSecondOrder(diffusionTermY,dX); %#ok<NASGU>
         assert( mean(mean(abs(diffYX-diffXY))) <= 1e-2*norm(diffXY(:)) );
         
-        Uprop = ( -U/Umax^2 ).*( Heavi( (U/Umax).^2 - 1 - epsilon) );
+        Uprop = 0*( -U/Umax^2 ).*( Heavi( (U/Umax).^2 - 1 - epsilon) );
         dU    = dt*(diffXX + diffYY + Uprop) + h_of_u;
         U     = U + dU;
         
