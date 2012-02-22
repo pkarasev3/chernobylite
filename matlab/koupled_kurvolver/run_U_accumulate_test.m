@@ -29,62 +29,87 @@ if( nargin < 3 )
 end
 epsilon   = sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
-delta     = @(z)  1 * (z == 0) + (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+delta     = @(z)  (abs(z) <= epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0); %#ok<NASGU>
 
 [X Y] = meshgrid(1:size(phi,2),1:size(phi,1));
-U  = zeros(size(phi));
-dU = zeros(size(phi));
+dX    = 1/epsilon;
+U     = zeros(size(phi)); % U_t = h(u_k) + div( D(U,\mathbf{x}) \cdot gradU ), nonlinear diffusion
+Uraw  = zeros(size(phi)); % what would happen if U_t = h(u_k);
 
-Umax = 3.0; dt = 0.1;
+Umax = 10.0; dt = 2/Umax;
 
-sfigure(1); hold on; imagesc(img); colormap bone;
-  k = 1; kmax = 1500;
-  Ucost = zeros(1,k);
+sfigure(1); hold on; imagesc(img); colormap bone; axis('xy'); 
+  k = 1; kmax = 1200;
+  [yhat xhat] = find( phi_star > -20.0 );
+  N_feasible_input_points = numel(xhat);
+  Unorm_of_t = zeros(1,k);
   while( k < kmax )
-    px = ( rand(1,1) * (size(U,2)) );
-    py = ( rand(1,1) * (size(U,2)) );
+    idx_input = randi(N_feasible_input_points);
+    py        = yhat(idx_input);
+    px        = xhat(idx_input);
     
-    h_of_u = exp( -( (X - px).^2 + (Y - py).^2 )/(sqrt(sqrt(numel(X(:)))) ) );
-    px     = round(px); px(px<1)=1;
-    py     = round(py); py(py<1)=1;
-    dU = (phi_star(py,px) > 0).*(0 > phi(py,px) ) - ...
-            (phi_star(py,px) < 0).*(0 < phi(py,px) );     
-    h_of_u = h_of_u * dU;
-    if(abs(dU)>0)
-      h_of_u = h_of_u * (k < kmax / 3 );
-      k = k+1;
-      sfigure(1); hold on;
-      if( dU < 0 )
-        plot( px,py,'ro' );
-      elseif( dU > 0 )
-        plot( px,py,'gx' );
+    uk     = (phi_star(py,px) > 0)*(0 > phi(py,px) ) - (phi_star(py,px) < 0)*(0 < phi(py,px) );     
+        
+    if(abs(uk)>0  || (k > kmax/4) )
+      k      = k+1;
+      alpha  = 10.0;
+      
+      if( k > 2*kmax/3 )
+        uk   = 0;
       end
-      hold off;
       
-      U  = U + h_of_u;
-      laplacian_of_U = 4*del2(U); 
-      [Ux Uy]        = gradient(U);
-      normGradU      = (Ux.^2+Uy.^2);
-      dU= (laplacian_of_U) .* ( Heavi( (U.^2 - Umax.^2) ) ) - U .* delta( U.^2 - Umax.^2).*(1+ normGradU);
-      U = U + dt * dU;
-      maxU = max(abs(U(:)));
-      Ucost(k) = eval_cost_of_U( U, Umax, normGradU );
-      sfigure(2); mesh(U); title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ... 
-                                                            ', max(|U|)=' num2str(maxU) ]); 
-      sfigure(1); semilogy( Ucost );    title(' \Omega(t) = \int_\Omega H(U^2-U_{max}^2)(1+|\nabla U|^2)dx');                                                      
-      drawnow;
-      fprintf('');
+      h_of_u = uk*exp( -(0.125/alpha)*( (X - px).^2 + (Y - py).^2 ) ).*exp( -alpha^2*(img(py,px)-img).^2 );
+      sh=sfigure(1);  %#ok<NASGU>
+      %setFigure( sh,[1200,512],1.8,1.8); % bizarre, this slows down big time?!
+      imagesc(img); hold on; axis('xy'); 
+      contour(X,Y,phi_star<0,1,'g-'); contour(X,Y,phi<0,1,'r-.'); contour(X,Y,U,3,'b-'); 
+      caxis( [0, 1] ); colormap bone;
+      if( uk < 0 )
+        plot( px,py,'cs' );
+      elseif( uk > 0 )
+        plot( px,py,'c+' );
+      else
+        % ... 
+      end
+      hold off; 
+
       
+      Uraw = Uraw + h_of_u;
+      sub_iters = 3;
+      for iters = 1:sub_iters
+        [normGradU Ux Uy] = gradSecondOrder(U, dX); %#ok<ASGLU>
+        diffusionTermX           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Ux;
+        diffusionTermY           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Uy;
+
+        [~, diffXX, diffXY]      = gradSecondOrder(diffusionTermX,dX); %#ok<NASGU>
+        [~, diffYX, diffYY]      = gradSecondOrder(diffusionTermY,dX); %#ok<NASGU>
+        assert( mean(mean(abs(diffYX-diffXY))) <= 1e-2*norm(diffXY(:)) );
+        
+        Uprop = ( -U/Umax^2 ).*( Heavi( (U/Umax).^2 - 1 - epsilon) );
+        dU    = dt*(diffXX + diffYY + Uprop) + h_of_u;
+        U     = U + dU;
+        
+        h_of_u = 0*h_of_u; % only done once
+      end
+      
+      maxUCurrent = max(abs(U(:)));
+      sfigure(2); mesh(U); 
+      title(['U, iter = ' num2str(k) ' of ' num2str(kmax) ', max(|U|)/U^*=' num2str(maxUCurrent/Umax) ]);                                                                 
+      axis([1 size(U,2) 1 size(U,1) -Umax Umax ] );
+
+      sfigure(3); mesh(Uraw); title(['raw input accumulation, U_t = h(u_k)']); 
+      
+      pause(0.01); %drawnow;
+      fprintf('%d iters, norm(U)=%f ... ',k,norm(U(:)) );
+      if( mod(k,5) == 0 )  fprintf('\n'); end;               %#ok<SEPEX>
+      
+      Unorm_of_t(k) = norm(U(:));
     end
-    
-    
-    
     fprintf('');
-    
   end
   
-  disp('done with test of U accumulate... saving');
-  save data_run_U_accumulate_test   U  Umax phi phi_star img Ucost
+  disp('done with test of U accumulate... saving to file: ');
+  save data_run_U_accumulate_test   U  Umax phi phi_star img Unorm_of_t  Uraw
   !ls -ltrh ./data_run_U* 
 end
 
