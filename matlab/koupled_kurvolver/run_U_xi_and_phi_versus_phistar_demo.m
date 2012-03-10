@@ -102,7 +102,7 @@ sfigure(1); clf;
 
 epsilon   = sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
-delta     = @(z)  1 * (z == 0) + (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
 % the cost of overlap that we want to shrink
 overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );
@@ -129,7 +129,7 @@ phi2_mid      = 0 * img;
 lambda     = mean(abs(img(:)))^2;
 kappa_phi  = 0*psi1;
 kappa_psi  = 0*psi1;
-kappa_eta  = 0*psi1;
+kappa_xi   = 0*psi1;
 delta_rel1 = [1];
 delta_rel2 = [1];
 delta_abs1 = [1];
@@ -151,7 +151,7 @@ Norm_eU_all     = [0.5];
 Norm_U_all      = [0.5];     
 deltasqr_vol_all= sqrt([trapz(trapz((delta(psi1)).^2))]);
 
-eta_integral    = 0 * phi2;
+xi_integral    = 0 * phi2;
 
 Gmax            = (min(img(:))-mean(img(:))).^2 + (max(img(:))-mean(img(:))).^2; % maximum the G(\phi,I) term can ever be
 
@@ -159,104 +159,83 @@ dt0             = dt_init;
 MaxTime         = 0.25;
 
 rho             =  rho_argin; %(1/2); % 1/16 %(1/4);
-Umax            =  sqrt(Gmax)/sqrt(rho);
-Umax_           =  Umax; %//5.0;
+alph            =  1e-1;
+Umax1           =  sqrt(Gmax)/sqrt(rho)
+Umax2           =  sqrt( (1+rho)/(rho)*(1/alph^2) )
+Umax            = max([Umax1, Umax2]);
 
 [~, ~, ~, gval ]  = update_phi( img, psi1, phi2, 0*psi1, 0*psi1, 0);
 f_phi=0*phi2;
 phi0 = phi2;
+
 while( (tt < MaxTime) || (steps < MaxSteps) )
   
+  
+  
+  % Generate and accumulate user inputs
   num_inputs = 5;
   k = 1; 
-  U_ = U ; %/ Umax * Umax_;
-  h_of_u_sum = 0*U;
-  
-  % eta_integral = eta_integral + 0.25 * ( Heavi(phi2) - Heavi(phi_star) );
-     
+  U_   = U;
   while( (steps > 50) && (k < num_inputs) )  % User is the only place that reference phi_star exists ! 
-    phi0rightsign = ( (phi_star .* phi0) >= epsilon/2 );
-    stucknearphi0bdry = 1+(phi_star.*phi0>=-epsilon).*(phi2.*phi0<=0);
+   
     idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
-                     (phi_star < 0).*(0 < phi2 ) ).* ... 
-   max( phi0rightsign , stucknearphi0bdry ) >0 );
+                     (phi_star < 0).*(0 < phi2 ) ) > 0 );
+    
+                       
+    %idx_u = setdiff( idx_u, find( phi_star > 0 ) );
+   
     if(numel(idx_u) < k )
       break;
     end
     idx_u   = idx_u( randperm(numel(idx_u)) );
     [py px] = ind2sub( size( phi2 ),idx_u(k) );
-    curr_BW = 7;
     
-%     if( (steps < 100) && (isempty( intersect(py,142:166) ) || ...
-%                           isempty( intersect(px,115:150) ) ) )
-%         continue;                
-%     end
+    U_ = updateU( U_, phi_star,phi2,px,py,img,Umax);
+    diffU=norm( U(:)-U_(:) );
     
-    % add in to h_of_u for better metrics... (img(py,px)-img).^2 .* 
-    %h_of_u = Heavi( (curr_BW - ( ( (xx - px).^2 + (yy - py).^2 ) ) ) );
-    h_of_u   = exp( -( (xx - px).^2 + (yy - py).^2 )/curr_BW );
-    u_in   = (phi_star(py,px) > 0).*(0 > phi2(py,px) ) - ...
-            (phi_star(py,px) < 0).*(0 < phi2(py,px) );
-    curr_err = abs( phi_star(py,px) - phi2(py,px) );          
-%     if ( (curr_err <= 2*epsilon ) )
-%               u_in = 0; % they dont click if its doing good
-%     end
-    
-    h_of_u = h_of_u * u_in * Umax * 5e-2;
-    k = k+1;
-    U_  = U_ + h_of_u;
-    
-    dtU= 0.05;
-    laplacian_of_U = 4*del2(imfilter(U_,fspecial('gaussian',[3 3],0.5),'replicate')); 
-    L_ = laplacian_of_U(3:end-2,3:end-2); laplacian_of_U = 0*laplacian_of_U;
-    laplacian_of_U(3:end-2,3:end-2) = L_;
-    [Ux Uy]        = gradient(U_);
-    normGradU      = 0*(Ux.^2+Uy.^2); normGradU(1,:) = 0; normGradU(end,:) = 0; normGradU(:,1) = 0; normGradU(:,end) = 0;
-    dU= (laplacian_of_U) .* ( Heavi( (U_.^2 - Umax_.^2) ) ) - U_ .* Heavi( U_.^2 - Umax_.^2).*(1+ normGradU);
-    U_ = U_ + dtU * dU;
-    
-    h_of_u_sum = h_of_u_sum + dtU * dU;
-    curr_maxU_ = max(abs(U_(:)));  
-     if( abs(u_in) > 0 )
-      %fprintf('fixing nominal dynamics at x=%f, y=%f, max(U_)=%f \n ',px, py,curr_maxU_);
+    if( k<= 1) 
+      fprintf('diffU = '); 
     end
+    fprintf(' %6.2g ,  ',diffU);
+    k  = k+1;
+    if( k==num_inputs)
+      fprintf('\n');
+    end
+    
   end
-  if( 0 ) % show the delta U term 
-    sfigure(3); imagesc( img/max(img(:)) + 2*h_of_u_sum/max(1e-9+abs(h_of_u_sum(:))) );  drawnow;
-  end 
   
-  U   = U_ ;%/ max(U_(:)) * Umax ;% / Umax_ * Umax;
+  % Update U
+  U    = U_ ;
  
     
-  % Doesnt hold now assert( sum( U(:) < sqrt( abs(gval(:))/(rho) ) ) == 0 );
+   
+  % Update phi
+  xi                   = Heavi(phi2)-Heavi(psi1);
+  f1                   = -(U.^2).*(xi);
+  kappa_xi(:)          = kappa(delta(phi2).^2 .* xi,1:numel(xi(:))); %#ok<NASGU>
+  f2                   = lambda * (kappa_xi);
+  f_phi                = f1 + f2;     assert( sum(isnan(f_phi(:))) == 0 );
+   
   
-  prev_psi1            = psi1;
-  eta                  = (Heavi(psi1)-Heavi(phi2)); 
-  %Del_eta              = 4*del2(eta);
-  f1                   = -(U.^2).*(eta);
-  %f2                   =  rho*(U.^2).*Del_eta; % rho * (U.^2).*(eta)./( abs(eta).^(3/2)+alph1 );
-  kappa_eta(:)         = kappa(eta,1:numel(eta(:)));
-  f2                   = rho*Gmax*kappa_eta;
-  f_phi                = f1 + f2;
-    
-  prev_phi2  = phi2;
-  redist_iters = round(2*dt0/0.5); redist_iters = min([2,max([redist_iters,1])]);
+  redist_iters         = 2;
+  [psi1 phi2 tb1 gval ]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
+ 
   
-  [psi1 phi2 tb1 gval ]  = update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
-  eta                  = (Heavi(psi1)-Heavi(phi2)); 
-  eU                   = (Heavi(psi1)-Heavi(U)).*(U.^2);
-  a2                   = Gmax*1e-1;
-  a3                   = 1e-1;
-  %kappa_eta(:)         = kappa((psi1-phi2),1:numel(eta(:)));
-  f_psi                = -( eU )*a3 - eta * a2 + 0*kappa_eta;
-  [psi1 phi2 tb2 ~ ]  = update_psi( img, psi1, phi2, f_psi, 0*f_phi, redist_iters );
+  % Update psi 
+  xi                   = Heavi(phi2)-Heavi(psi1); 
+  eU                   = Heavi(psi1)-Heavi(U);
+  kappa_xi(:)          = kappa( delta(psi1).^2.*(eU),1:numel(xi(:)));
+  g1                   = xi; 
+  g2                   = 0 * kappa_xi;
+  f_psi                = g1+g2;
+  [psi1 phi2 tb2 ~ ]   = update_psi( img, psi1, phi2, f_psi, 0*f_phi, redist_iters );
   tb = max([tb1 tb2]);
-  fprintf('max f_phi = %f, max f_psi = %f with Phi part %f \n',...
-  max(abs(f_phi(:))),max(abs(f_psi(:))), max(abs(eta(:)*a2)) );  
+  fprintf('max f_phi = %f, max f_psi = %f \n',...
+  max(abs(f_phi(:))),max(abs(f_psi(:))) );  
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval        = eval_label_dist(psi1,phi2);
-  Norm_eUsqrd = (trapz(trapz(  0.5*(Heavi(psi1)-Heavi(U)).^2 .* (abs(U)>1e-9) )));
+  Norm_eUsqrd = (trapz(trapz(  0.5*(Heavi(psi1)-Heavi(U)).^2 .* (abs(U)  >  1e-9) )));
   Norm_eU_all = [Norm_eU_all, (Norm_eUsqrd)];
   Norm_U_all  = [Norm_U_all,  sqrt( trapz(trapz( U.^2 ) ) )];
   deltasqr_vol= (trapz(trapz( (delta(phi2) ).^2 ) ))+(trapz(trapz( (delta(psi1) ).^2 ) ));
@@ -267,17 +246,8 @@ while( (tt < MaxTime) || (steps < MaxSteps) )
   tt         = tt + tb;
   tsum       = tsum + tb;
   t_all      = [t_all, tt]; %#ok<*AGROW>
-  delta_abs1 = [delta_abs1, norm( prev_psi1(:) - psi1(:) )];
-  delta_abs2 = [delta_abs2, norm( prev_phi2(:) - phi2(:) )];
-  delta_rel1 = [delta_rel1, delta_abs1(end)/norm(psi1(:))];
-  delta_rel2 = [delta_rel2, delta_abs2(end)/norm(phi2(:))];
+ 
   
-  dt0        = dt_init * (1 - exp( -delta_abs1(end)/(sqrt(deltasqr_vol)) ) ) ; 
-  dt0        = max([dt0,0.05]);
-  
-  %overlap_cost = overlap(psi1,phi2);
-  %emptygap_cost= emptygap(psi1,phi2,5) + emptygap(phi2,psi1,5);
-  % fprintf('\n overlap cost = %f. empty-gap cost = %f,',overlap_cost,emptygap_cost);
   
   % setup display image
   displayLevelSets();
@@ -326,17 +296,17 @@ end
                                                redist_iters)
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
-    kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));    
+    
     GofIandPhi = (Img - mu_i).^2 - (Img - mu_o).^2;
     Gmax_now   = max(abs(GofIandPhi(:)));
     assert( Gmax_now <= Gmax );
-    g_alpha = GofIandPhi + f_phi;
+    g_alpha = -GofIandPhi + f_phi;
     
     lambda_now = 0*lambda;
-    g_source= -delta(phi) .*g_alpha;
-    dphi  = delta(phi) .* (-g_alpha +lambda_now * kappa_phi) ;
-    fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
-      mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
+    g_source   = delta(phi) .*g_alpha;
+    dphi       = g_source;
+%     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
+%       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
     
     both_maxes = [max(abs(dphi(:)))]; % max of dphi and dpsi
     dt_a  = dt0 / max(both_maxes);  

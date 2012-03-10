@@ -4,7 +4,7 @@ function run_U_accumulate_test()
   set(0,'defaulttextfontname','Arial');
   set(0,'defaultaxesfontweight','bold');
   set(0,'defaultlinelinewidth',2);
-  set(0,'defaultlinemarkersize',4);
+  set(0,'defaultlinemarkersize',6);
   
   dbstop if error;
   addpath('~/source/chernobylite/matlab/util/');
@@ -16,6 +16,61 @@ function run_U_accumulate_test()
   test_gen_U( );
 
 
+end
+
+function load_plot_U()
+
+   load data_run_U_accumulate_test
+  
+   sh=sfigure(1);  %#ok<NASGU>
+   phi2 = phi;
+   phi1 = phi_star;
+   phi_show_thresh = 2;
+    img_show = repmat(img,[1 1 3]);
+    imgb = img_show(:,:,3);
+    imgg = img_show(:,:,2);
+    imgr = img_show(:,:,1);
+    
+    % zero out the non-active colors for phi1 (active red), phi2 (active green)
+    imgr( abs( phi2 ) < phi_show_thresh ) = 0;
+    imgg( abs( phi1 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi2 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi1 ) < phi_show_thresh ) = 0;
+    
+    imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
+      abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
+    
+    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
+      abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
+   
+    img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
+    img_show(img_show>1)=1; img_show(img_show<0)=0;
+    
+    
+    imagesc(img); hold on;  axis('xy');  
+    
+     for k = 1:1:size(negXY_all,2)
+       px = negXY_all(1,k);
+       py = negXY_all(2,k);
+       plot( px,py,'cx','MarkerSize',8); 
+     end
+        
+     for k = 1:3:size(posXY_all,2)
+       px = posXY_all(1,k);
+       py = posXY_all(2,k);
+       plot( px,py,'m+','MarkerSize',8);
+     end
+     axis image; 
+     xlabel('X (pixels)'); ylabel('Y (pixels');
+     hold off;
+    
+    fprintf('done...\n'); 
+    
+    sfigure(2); imagesc(img_show); axis('xy'); axis image; 
+    xlabel('X (pixels)'); ylabel('Y (pixels');
+    
 end
 
 function test_gen_U(phi_star,phi,img)
@@ -35,7 +90,8 @@ delta     = @(z)  (abs(z) <= epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0); %#
 dX    = 1/epsilon;
 U     = zeros(size(phi)); % U_t = h(u_k) + div( D(U,\mathbf{x}) \cdot gradU ), nonlinear diffusion
 Uraw  = zeros(size(phi)); % what would happen if U_t = h(u_k);
-
+posXY_all= [];
+negXY_all= [];
 Umax = 10.0; dt = dX/Umax;
 
 sfigure(1); hold on; imagesc(img); colormap bone; axis('xy'); 
@@ -56,18 +112,24 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
       
       if( k > 2*kmax/3 )
         uk   = 0;
+      else
+        %
       end
       
-      h_of_u = uk*exp( -(0.125/alpha)*( (X - px).^2 + (Y - py).^2 ) ).*exp( -alpha*(img(py,px)-img).^2 );
+      %h_of_u = uk*exp( -(0.125/alpha)*( (X - px).^2 + (Y - py).^2 ) ).*exp( -alpha*(img(py,px)-img).^2 );
+      h_of_u = uk*( (0.5*alpha) >= sqrt( ( (X - px).^2 + (Y - py).^2 ) ) ) ...
+                                      .*exp( -alpha*(img(py,px)-img).^2 );
       sh=sfigure(1);  %#ok<NASGU>
       %setFigure( sh,[1200,512],1.8,1.8); % bizarre, this slows down big time?!
       imagesc(img); hold on; axis('xy'); 
-      contour(X,Y,phi_star<0,1,'g-'); contour(X,Y,phi<0,1,'r-.'); contour(X,Y,U,3,'b-'); 
+      contour(X,Y,phi_star<0,1,'g-'); contour(X,Y,phi<0,1,'r-.'); contour(X,Y,U,3,'c--'); 
       caxis( [0, 1] ); colormap bone;
       if( uk < 0 )
-        plot( px,py,'cs' );
+        plot( px,py,'cs' ); 
+        negXY_all = [negXY_all, [px; py]];
       elseif( uk > 0 )
         plot( px,py,'c+' );
+        posXY_all = [posXY_all, [px; py]];
       else
         % ... 
       end
@@ -77,9 +139,10 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
       Uraw = Uraw + h_of_u;
       sub_iters = 5;
       for iters = 1:sub_iters
-        [normGradU Ux Uy] = gradSecondOrder(imfilter(U,fspecial('gaussian'),'replicate'), dX); %#ok<ASGLU>
-        diffusionTermX           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Ux;
-        diffusionTermY           = (U/Umax).^2 .* Heavi( U.^2 - Umax^2  ).*Uy;
+        [normGradU Ux Uy] = gradSecondOrder(imfilter(U, ... 
+                         fspecial('gaussian',[3 3],0.25),'replicate'), dX); %#ok<ASGLU>
+        diffusionTermX           = (U/Umax).^2 .* Heavi( (U/Umax).^2 - 1 ).*Ux;
+        diffusionTermY           = (U/Umax).^2 .* Heavi( (U/Umax).^2 - 1 ).*Uy;
 
         [~, diffXX, diffXY]      = gradSecondOrder(diffusionTermX,dX); %#ok<NASGU>
         [~, diffYX, diffYY]      = gradSecondOrder(diffusionTermY,dX); %#ok<NASGU>
@@ -100,7 +163,7 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
       sfigure(3); mesh(Uraw); title(['raw input accumulation, U_t = h(u_k)']); 
       
       pause(0.01); %drawnow;
-      fprintf('%d iters, norm(U)=%f ... ',k,norm(U(:)) );
+      disp([ sprintf('%d iters, norm(U)=%4.2f ... ',k,norm(U(:)) ) ] );
       if( mod(k,5) == 0 )  fprintf('\n'); end;               %#ok<SEPEX>
       
       Unorm_of_t(k) = norm(U(:));
@@ -109,7 +172,8 @@ sfigure(1); hold on; imagesc(img); colormap bone; axis('xy');
   end
   
   disp('done with test of U accumulate... saving to file: ');
-  save data_run_U_accumulate_test   U  Umax phi phi_star img Unorm_of_t  Uraw
+  save data_run_U_accumulate_test   U  Umax phi phi_star img Unorm_of_t  Uraw posXY_all negXY_all
+  disp(['vars saved:  U  Umax phi phi_star img Unorm_of_t  Uraw posXY_all negXY_all']);
   !ls -ltrh ./data_run_U* 
 end
 
