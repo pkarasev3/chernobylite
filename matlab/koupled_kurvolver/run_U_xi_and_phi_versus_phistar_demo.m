@@ -6,7 +6,7 @@ function run_U_xi_and_phi_versus_phistar_demo()
   set(0,'defaultlinelinewidth',2);
   set(0,'defaultlinemarkersize',4);
   
-  dt_init         = 0.7; 
+  dt_init         = 0.9; 
     
   %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
   %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
@@ -14,7 +14,7 @@ function run_U_xi_and_phi_versus_phistar_demo()
   %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     0.125 ,dt_init);
+  [Dval_allc t_allc] = run_core(     1/sqrt(2) ,dt_init);
 %    sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
 %    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
@@ -163,7 +163,7 @@ MaxTime         = 0.25;
 rho             =  rho_argin; %(1/2); % 1/16 %(1/4);
 alphaPsi        =  1e-1;
 Umax            =  sqrt(Gmax/rho + 1)
-%lambda          =  sqrt(2)*(Gmax + 1
+
 
 [~, ~, ~, gval ]  = update_phi( img, psi1, phi2, 0*psi1, 0*psi1, 0);
 f_phi=0*phi2;
@@ -184,16 +184,20 @@ while( (steps < MaxSteps) )
   
   % Generate and accumulate user inputs
   num_inputs = 5;
+  if( steps > 150 )
+    num_inputs = 1;
+    %lambda          =  (Gmax + 1);
+  end
   k = 1; 
   U_   = U; 
-  while( (steps < 350) && (steps > 40) && (k < num_inputs) )  % User is the only place that reference phi_star exists ! 
+  while(  (steps > 50) && (k <= num_inputs) )  % User is the only place that reference phi_star exists ! 
    
-    idx_u = find( abs( (phi_star > 0).*(0 > phi2 ) - ...
-                     (phi_star < 0).*(0 < phi2 ) ) > 0 );
-    idx_dont_u = find(  (abs(U)<1e-9).*(phi_star>epsilon) > 0 );
-    idx_u = setdiff( idx_u, idx_dont_u );
+    idx_u = find( abs( (phi_star > 0).*(  0 > phi2 ) - ...
+                       (phi_star < 0).*(  0 < phi2 ) ) > 0 );
+    %idx_dont_u = find(  (abs(U)<1e-9).*(phi_star>epsilon) > 0 );
+    %idx_u = setdiff( idx_u, idx_dont_u );
     
-    if( numel(idx_u) < k )
+    if( (steps > 400) || (numel(idx_u) < k ) )
       px = 1; py = 1;
     else
       idx_u   = idx_u( randperm(numel(idx_u)) );
@@ -214,8 +218,8 @@ while( (steps < MaxSteps) )
   end
   
   % Update U
-  U_( U_.*U < 0 ) = U( U_.*U < 0 );
-  U               = U_*0.5 + U*0.5 ;
+  %U_( U_.*U < 0 ) = U( U_.*U < 0 );
+  U               = U_;
   deltaU          = U-U_;
   
   
@@ -234,17 +238,19 @@ while( (steps < MaxSteps) )
   redist_iters         = 2;
   phi2_prev            = phi2;
   [psi1 phi2 tb1 dphi ]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
+  %phi2 = (phi2+phi2_prev)*0.5;
   
   % Update psi 
-  g1                    = xi; 
-  
-  alphaPsi              = 0.5 / Umax;  % D(t) to zero  F bounded
-  %alphaPsi             = 2.0 / Umax;  % F(t) to zero, D bounded
+  xi                     = Heavi(phi2)-Heavi(psi1);
+  g1                     = xi; 
+  alphaPsi               = 0.5 / Umax;  % D(t) to zero  F bounded
+  %alphaPsi              = 2.0 / Umax;  % F(t) to zero, D bounded
   
   g2                   = -eU .* ( alphaPsi * U).^2;
   f_psi                = g1+g2;
   psi1_prev            = psi1;
   [psi1 phi2 tb2 ~ ]   = update_psi( img, psi1, phi2, f_psi, dphi, redist_iters );
+  %psi1 = (psi1+psi1_prev)*0.5;
   tb = min([tb1 tb2]);
   mf1=max(abs(f_phi(:))); mf2 = max(abs(f_psi(:))); 
   fprintf('max f_phi = %f, max f_psi = %f \n',mf1,mf2 );

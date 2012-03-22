@@ -19,12 +19,12 @@ function [U h_out uk] = updateU( U, phi_star,phi,px,py,img, Umax)
      
       alpha  = 0.1 * (max(img(:)) - min(img(:)) )^2;
       
-      h_of_u = (Umax/4) * uk*( (exp( 0.5-( ( (X - px).^2 + (Y - py).^2 ) ) )) ...
+      h_of_u = (Umax/2) * uk*( (exp( 0.5-( ( (X - px).^2 + (Y - py).^2 ) ) )) ...
                                       .* ( (img(py,px)-img).^2  <= alpha ) );
       h_out  = h_of_u;
       Uraw = Uraw + h_of_u;
       sub_iters = 5;
-      smth      = fspecial('gaussian',[3 3],0.5);
+      smth      = fspecial('gaussian',[3 3],0.35);
       for iters = 1:sub_iters
         Usmth   = imfilter(U,smth,'replicate');
         [Ux Uy] = gradient( Usmth, dX); %, dX ); 
@@ -34,7 +34,7 @@ function [U h_out uk] = updateU( U, phi_star,phi,px,py,img, Umax)
         [diffYX, diffYY]      = gradient(diffusionTermY,dX); %#ok<NASGU>
         %assert( norm(diffYX(:) - diffXY(:) ) < Umax*max([norm(diffYX(:)),norm(diffYX(:))]) );
        
-        dU    = dt*(diffXX + diffYY - 1e-1*sign(Usmth).*abs(Usmth-Umax).*(abs(Usmth)>Umax)) + h_of_u;
+        dU    = dt*(diffXX + diffYY - 0.5*sign(Usmth).*(abs(Usmth)-abs(Umax)).*(abs(Usmth)>Umax)) + h_of_u;
         U     = U + dU;
         
         h_of_u = 0*h_of_u; % only done once
