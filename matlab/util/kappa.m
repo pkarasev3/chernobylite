@@ -27,7 +27,8 @@ function K = kappa(phi, p, dX)
   dx2 = dx.^2;    dy2 = dy.^2;
   dxx = Dxx(phi); dyy = Dyy(phi); dxy = Dxy(phi);
 
-  K = (dx2.*dyy + dy2.*dxx - 2*dx.*dy.*dxy)./(dx2 + dy2 + eps);
+  alpha = eps;
+  K = (dx2.*dyy + dy2.*dxx - 2*dx.*dy.*dxy)./(dx2 + dy2 + alpha);
   
   % Note: Poincare in L1, for phi with compact support, says:
   % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )

@@ -8,21 +8,21 @@ function run_U_and_phi_versus_phistar_demo()
   
   dt_init         = 0.7; 
     
-  %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
+  [Dval_alla t_alla] = run_core( (1/(2)) , dt_init);
   %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;  
   
   %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
-   sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
-  
-   [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
-   sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
-   
-  [Dval_alle t_alle] = run_core(     (1/(256)) ,dt_init);
-   sfigure(2); semilogy(t_alle,Dval_alle,'--','color',[0.9 0.4 .2]); 
-   
+%   [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
+%    sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
+%   
+%    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
+%    sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
+%    
+%   [Dval_alle t_alle] = run_core(     (1/(256)) ,dt_init);
+%    sfigure(2); semilogy(t_alle,Dval_alle,'--','color',[0.9 0.4 .2]); 
+%    
    legend('\rho=(1/2)^{1/2}','\rho=(1/2)','\rho=(1/4)','\rho=(1/16)','\rho=(1/256)');
    xlabel('time (sec)');
    ylabel('labeling error');
