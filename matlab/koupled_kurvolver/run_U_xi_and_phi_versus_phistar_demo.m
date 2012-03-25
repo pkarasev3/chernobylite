@@ -14,7 +14,7 @@ function run_U_xi_and_phi_versus_phistar_demo()
   %[Dval_allb t_allb] = run_core(     (1/(2)) ,dt_init);
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
-  [Dval_allc t_allc] = run_core(     1/sqrt(2) ,dt_init);
+  [Dval_allc t_allc] = run_core(     1/(2) ,dt_init);
 %    sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
 %    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
@@ -100,7 +100,7 @@ end
 
 sfigure(1); clf;
 
-epsilon   = sqrt(2); %1.1;%0.8;
+epsilon   = sqrt(2)*sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
@@ -230,6 +230,7 @@ while( (steps < MaxSteps) )
    
   % Update phi
   f1                   = -(U.^2).*(xi);
+  %kappa_xi(:)          = 0*phi2;%
   kappa_xi(:)          = kappa(delta(phi2).^2 .* xi,1:numel(xi(:))); %#ok<NASGU>
   f2                   = lambda * (kappa_xi);
   f_phi                = f1 + f2;     assert( sum(isnan(f_phi(:))) == 0 );
@@ -238,8 +239,7 @@ while( (steps < MaxSteps) )
   redist_iters         = 2;
   phi2_prev            = phi2;
   [psi1 phi2 tb1 dphi ]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
-  %phi2 = (phi2+phi2_prev)*0.5;
-  
+    
   % Update psi 
   xi                     = Heavi(phi2)-Heavi(psi1);
   g1                     = xi; 
@@ -250,7 +250,7 @@ while( (steps < MaxSteps) )
   f_psi                = g1+g2;
   psi1_prev            = psi1;
   [psi1 phi2 tb2 ~ ]   = update_psi( img, psi1, phi2, f_psi, dphi, redist_iters );
-  %psi1 = (psi1+psi1_prev)*0.5;
+  
   tb = min([tb1 tb2]);
   mf1=max(abs(f_phi(:))); mf2 = max(abs(f_psi(:))); 
   fprintf('max f_phi = %f, max f_psi = %f \n',mf1,mf2 );

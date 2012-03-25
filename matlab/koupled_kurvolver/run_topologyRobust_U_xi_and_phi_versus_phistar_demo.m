@@ -267,6 +267,7 @@ while( (steps < MaxSteps) )
   end
   f1                   = -(U.^2).*( xi*tauU +  tauR*( Nxi_x.*Nphi_x + Nxi_y.*Nphi_y ) ) ;
   
+ 
   kappa_xi(:)          = kappa(delta(phi2).^2 .* xi,1:numel(xi(:))); %#ok<NASGU>
   f2                   = lambda * (kappa_xi);
   f_phi                = f1 + f2;     assert( sum(isnan(f_phi(:))) == 0 );
@@ -274,11 +275,15 @@ while( (steps < MaxSteps) )
   
   redist_iters         = 2;
   phi2_prev            = phi2;
-  [psi1 phi2 tb1 dphi ]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
+  [psi1 phi2 tb1 dphi G]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
   tb = tb1;
   
+  L1 = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
+  L2 = 5; L3 = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
+  lambda = L1  / ( L3 + L2 );
   
-  fprintf('max f_phi = %f \n',max(abs(f1(:))));
+  
+  fprintf('max f_phi = %f, lambda = %f \n',max(abs(f1(:))),lambda);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval        = eval_label_dist(psi1,phi2);
@@ -363,7 +368,7 @@ fprintf('result = %f \n',result);
     fprintf('');
   end
 
-  function  [psi phi dt_a dphidt] = update_phi( Img, psi, phi, f_psi, f_phi,...
+  function  [psi phi dt_a dphidt G] = update_phi( Img, psi, phi, f_psi, f_phi,...
       redist_iters)
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
@@ -374,6 +379,7 @@ fprintf('result = %f \n',result);
     g_alpha = -GofIandPhi + f_phi;
     
     lambda_now = 0*lambda;
+    G          = -GofIandPhi;
     g_source   = delta(phi) .*g_alpha;
     dphi       = g_source;
     
