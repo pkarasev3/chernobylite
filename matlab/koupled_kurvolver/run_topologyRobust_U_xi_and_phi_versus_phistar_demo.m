@@ -283,7 +283,7 @@ while( (steps < MaxSteps) )
   lambda = L1  / ( L3 + L2 );
   
   
-  fprintf('max f_phi = %f, lambda = %f \n',max(abs(f1(:))),lambda);
+  fprintf('max f1 = %f, max f2 = %f, lambda = %f \n',max(abs(f1(:))),max(abs(f2(:))),lambda);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval        = eval_label_dist(psi1,phi2);
