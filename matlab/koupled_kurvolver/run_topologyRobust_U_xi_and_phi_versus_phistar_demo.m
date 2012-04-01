@@ -109,7 +109,7 @@ psi1 = phi_star;
 
 sfigure(1); clf;
 
-epsilon   = sqrt(2); %1.1;%0.8;
+epsilon   = 3; %sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
@@ -278,9 +278,10 @@ while( (steps < MaxSteps) )
   [psi1 phi2 tb1 dphi G]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
   tb = tb1;
   
-  L1 = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
-  L2 = 5; L3 = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
-  lambda = L1  / ( L3 + L2 );
+  lamNum = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
+  lamDen = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
+  L0     = 5; 
+  lambda = lamNum  / ( L0 + lamDen );
   
   
   fprintf('max f1 = %f, max f2 = %f, lambda = %f \n',max(abs(f1(:))),max(abs(f2(:))),lambda);
@@ -397,8 +398,12 @@ fprintf('result = %f \n',result);
     dphidt= dt_a * dphi;
     
     if( redist_iters > 0 )
-      dX = 1/sqrt(2);
-      phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,3,false() );
+      dX      = 1/sqrt(2);
+      phiRD   = reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,3,false() );
+      %Neps    = 4;
+      %wR      = Heavi( abs(phi) - epsilon - epsilon/Neps );
+      %phiRD   = wR.*phiRD + (1-wR).*phi;
+      phi     = phiRD;
     end
     fprintf('');
   end
