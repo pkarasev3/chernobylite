@@ -133,7 +133,7 @@ int main(int ac, char ** av)
 
   Mat outimg;
   drawMatches(im2c, kpts_2, im1c, kpts_1, matches_popcount, outimg, Scalar::all(-1), Scalar::all(-1),
-              reinterpret_cast<const vector<char>&> (outlier_mask));
+              reinterpret_cast<const vector<char>&> (outlier_mask), DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
   string outname = "matches.png";
   if( ac > 3 ) {
     outname = av[3];
@@ -146,6 +146,9 @@ int main(int ac, char ** av)
   //warpPerspective(im2, warped, H, im1.size());
   //imshow("warped", warped);
   //imshow("diff", im1 - warped);
-  waitKey();
+  char keyin = 'o';
+  while( 'q' != waitKey(0) ) {
+    cout << "press q to quit!" << endl;
+  }
   return 0;
 }
