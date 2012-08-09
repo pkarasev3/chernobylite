@@ -107,15 +107,17 @@ if( exist('initial_data_phi_phi-star_img.mat','file' ) )
 else
   phi_star  = 1e2*tanh(imfilter( left_stub, fspecial('gaussian',[3 3],1.5),'replicate') );
   phi2      = 1e2*tanh(d2);
+  fprintf('initializing level sets... \n');
   if(bUseLSM)
      % phi, "ghost">=1,dX,iters,spatial order, time order
+     ghost_width  = 32; dX = 1/sqrt(2); spatial_order = 5; tvdrk_order = 3; iters = 500;
      phi_init = phi_star;
-     phi_star = reinitializeLevelSetFunction(phi_init, 1, 1/sqrt(2), 500, 3, 2);
+     phi_star = reinitializeLevelSetFunction(phi_init, ghost_width,dX, iters, spatial_order, tvdrk_order);
      phi_init = phi2;
-     phi2     = reinitializeLevelSetFunction(phi_init, 1, 1/sqrt(2), 500, 3, 2);
+     phi2     = reinitializeLevelSetFunction(phi_init, ghost_width, dX, iters, spatial_order, tvdrk_order);
   else
-    phi_star  = reinit_SD(phi_star, 1, 1, 0.5, 'ENO3', 300);
-    phi2      = reinit_SD(phi2,1,1,0.5,'ENO3',300);
+    phi_star  = reinit_SD(phi_star, 1/sqrt(2), 1/sqrt(2), 0.35, 'ENO3', 500);
+    phi2      = reinit_SD(phi2,1/sqrt(2),1/sqrt(2),0.35,'ENO3',500);
   end
   
   
@@ -146,8 +148,6 @@ img  = imfilter( 255*img, fspecial('gaussian',[5 5],0.0625),'replicate');
 img0 = img-min(img(:)); 
 img0 = img0/max(img0(:)); 
 
-
-
 img_show_mid  = img * 0;
 img_show_init = img * 0;
 phi2_init     = 0 * img;
@@ -162,7 +162,7 @@ delta_abs2 = [1];
 
 t_all      = [0];
 
-phi_show_thresh = max([0.95,epsilon*0.75]);
+phi_show_thresh = max([0.95,epsilon]);
 
 steps           = 0;
 MaxSteps        = 500;
@@ -188,6 +188,7 @@ while( (tt < MaxTime) && (steps < MaxSteps) )
 
   
   fprintf('');
+  
   steps = steps+1;
 end
 
@@ -233,7 +234,7 @@ fprintf('result = %f \n',result);
     dt_a  = 1 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     if( redist_iters > 0 )
       if( bUseLSM )
-        ghost_width  = 1; dX = 1/sqrt(2); spatial_order = 5; tvdrk_order = 3;
+        ghost_width  = 16; dX = 1/sqrt(2); spatial_order = 5; tvdrk_order = 3;
         levelset_rhs =  computeLevelSetEvolutionEqnRHS(-phi, {-dt_a*dphi}, ghost_width, dX, spatial_order );
         phi_rd       =  reinitializeLevelSetFunction(phi+dt0*levelset_rhs,1,dX,...
                              redist_iters,spatial_order,tvdrk_order,false() );
@@ -251,35 +252,17 @@ fprintf('result = %f \n',result);
   end
 
   function displayLevelSets()
-    img_show = repmat(img0,[1 1 3]);
-    imgb = img_show(:,:,3);
-    imgg = img_show(:,:,2);
-    imgr = img_show(:,:,1);
     
-    % zero out the non-active colors for phi1 (active red), phi2 (active green)
-    imgr( abs( phi2 ) < phi_show_thresh ) = 0;
-    imgb( abs( phi2 ) < phi_show_thresh ) = 0;
-    
-%     imgr( abs( phi1 ) < phi_show_thresh) = (imgr( abs( phi1 ) < phi_show_thresh) .* ... 
-%       abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
-%       1 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
-    
-    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ... 
-      abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
-     
-     %imgr( abs(U)>5 ) = 0; imgg( abs(U)>5 ) = 0;
-     %imgb( abs(U)>0 ) = (imgb(abs(U)>0)/2 + abs(U(abs(U)>0))/max(abs(C12(:))) );
-    
-    img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
-    img_show(img_show>1)=1; img_show(img_show<0)=0;
-    img_show = img_show(9:(end-8),33:(end-32),:);
+    img_show = draw_contour_pair_on_image( img0, phi1, phi2, phi_show_thresh);
+    img_show = img_show(9:(end-8),33:(end-32),:); % truncate ROI
+
     sfigure(1); imshow(img_show); axis equal;
     title(['image and contours, t=' num2str(tt), ' steps = ' num2str_fixed_width(steps) ]);
 
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    %imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
+    % write images to disk ??
+    imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
    
    
     

@@ -6,7 +6,7 @@ set(0,'defaultaxesfontweight','bold');
 set(0,'defaultlinelinewidth',2);
 set(0,'defaultlinemarkersize',4);
 
-dt_init         = 0.7;
+dt_init         = 0.9;
 
 %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
 %sfigure(2); semilogy(t_alla,Dval_alla,'--','color',[0 0 0.8]); hold on;
@@ -35,7 +35,7 @@ dt_init         = 0.7;
 end
 
 
-function [img phi_star phi2] = get_img_phantom_bridge()
+function [img phi_star phi2 strtitle] = get_img_phantom_bridge()
 img      = phantom();
 img(img==0) = 0.1;
 [star_i star_j] = find( ( (img < 1e-1) - (img == 0) ) > 1e-3  );
@@ -66,10 +66,50 @@ phi_init = phi2;
 phi2     = reinitializeLevelSetFunction(phi_init, 1, 1.0, 500, 3, 2);
 
 save('initial_data_phantom_bridge.mat','phi_star','phi2','img');
-
+strtitle = 'bridge';
 end
 
-function [img phi_star phi2] = get_img_phantom_white()
+function [img phi_star phi2 strtitle] = get_img_phantom_split()
+
+img      = phantom();
+img(img==0) = 0.1;
+[star_i star_j] = find( ( (img < 1e-1) - (img == 0) ) > 1e-3  );
+star_i_all = star_i; star_j_all = star_j;
+keep_idx  = find( star_j < 128 );
+star_i    = star_i(keep_idx);
+star_j    = star_j(keep_idx);
+idx_left  = sub2ind( size(img), star_i, star_j);
+left_stub = img*0-1; left_stub( idx_left ) = 1;
+idx_both  = sub2ind( size(img), star_i_all, star_j_all );
+both_stubs= img*0-1; both_stubs( idx_both ) = 1;
+
+
+img = img + (randn(size(img))*5e-2);
+img = abs(img+0.1).^(1.5);
+img(img>1)=1;
+
+[m n] = size(img);
+[xx yy] = meshgrid(1:m,1:n);
+
+xy3     = [130,130];
+
+RadInit = 45;%15;
+
+d3      = RadInit - sqrt( ((xx-xy3(1))).^2 + ((yy-xy3(2))).^2 );
+
+  phi_star  = 1e2*tanh(imfilter( both_stubs, fspecial('gaussian',[3 3],1.5),'replicate') );
+  phi2      = 1e2*tanh(d3);
+
+  phi_init = phi_star;
+  phi_star = reinitializeLevelSetFunction(phi_init, 1, 1.0, 500, 3, 2);
+  phi_init = phi2;
+  phi2     = reinitializeLevelSetFunction(phi_init, 1, 1.0, 500, 3, 2);
+
+strtitle = 'split';
+  
+end
+
+function [img phi_star phi2 strtitle] = get_img_phantom_white()
   img      = phantom();
   img(img==0) = 0.1;
   [star_i star_j] = find( (img>0.295).*(img<3.050) > 0 );
@@ -100,7 +140,7 @@ function [img phi_star phi2] = get_img_phantom_white()
   phi2     = reinitializeLevelSetFunction(phi_init, 1, 1.0, 500, 3, 2);
 
   save('initial_data_phantom_white.mat','phi_star','phi2','img');
-
+  strtitle = 'white';
 end
 
 function [Dval_all t_all psi1 phi2 img_show U tt xx yy] = run_core( rho_argin, dt_init )
@@ -113,9 +153,13 @@ addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
 addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
-%[img phi_star phi2] = get_img_phantom_bridge();
-[img phi_star phi2] = get_img_phantom_white();
+[img phi_star phi2 strtitle] = get_img_phantom_split(); %get_img_phantom_bridge();
+%[img phi_star phi2 strtitle]  = get_img_phantom_white();
 
+control_on = true();
+if( ~control_on )
+  strtitle = [strtitle '_OpenLoop'];
+end
 
 psi1 = phi_star;
 
@@ -124,7 +168,7 @@ psi1 = phi_star;
 
 sfigure(1); clf;
 
-epsilon   = sqrt(2)*sqrt(2); %1.1;%0.8;
+epsilon   = sqrt(2)*sqrt(2)*sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
@@ -145,13 +189,19 @@ img0 = img;
 img  = imfilter( img * 255, fspecial('gaussian',[5 5],1),'replicate');
 img  = img - min(img(:));
 img  = 10*img / max(img(:)) ;
+% img    = img / max(img(:));
+% img(:) = (histeq(img(:))*5).^2;
+% img  = imfilter( img * 10, fspecial('gaussian',[3 3],1),'replicate');
+% img  = img - min(img(:));
+% img  = 10*img / max(img(:));   img = img - mean(img(:));
+% img0 = img; img0 = img0 - min(img0(:)); img0 = img0/max(img0(:));
 
 img_show_mid  = img * 0;
 img_show_init = img * 0;
 phi2_init     = 0 * img;
 phi2_mid      = 0 * img;
 
-lambda     = mean(abs(img(:)))^2;
+lambda     = 0.1*mean(abs(img(:)))^2;
 kappa_phi  = 0*psi1;
 kappa_psi  = 0*psi1;
 kappa_xi   = 0*psi1;
@@ -163,7 +213,7 @@ delta_abs2 = [1];
 t_all      = [0];
 relTol     = 1e-4;
 absTol     = 1e2;
-phi_show_thresh = max([0.95,epsilon/2.0]);
+phi_show_thresh = max([0.95,epsilon]);
 tsum            = 0;
 U               = 0 * psi1;
 eps_u           = 1e-1;
@@ -175,11 +225,14 @@ Dval_all        = [Dval];
 Fval_all        = [0.5];
 Norm_U_all      = [0.5];
 Norm_du_all     = [0.0];
+lambda_all      = [0.0];
+mean_i_all      = [0.0];
+mean_o_all      = [0.0];
 deltasqr_vol_all= sqrt([trapz(trapz((delta(psi1)).^2))]);
 
 xi_integral    = 0 * phi2;
 
-Gmax            = (min(img(:))-mean(img(:))).^2 + (max(img(:))-mean(img(:))).^2; % maximum the G(\phi,I) term can ever be
+Gmax            = (max(img(:))-min(img(:)))^2; % maximum the G(\phi,I) term can ever be
 
 dt0             = dt_init;
 MaxTime         = 0.25;
@@ -194,6 +247,8 @@ f_phi=0*phi2;
 phi0 = phi2;
 
 imgForU = imfilter(img,ones(3,3)/9,'replicate');
+G       = 0*phi2;
+kappa_phi=0*G;
 
 while( (steps < MaxSteps) )
   
@@ -207,7 +262,7 @@ while( (steps < MaxSteps) )
   end
   k = 1;
   U_   = U;
-  while(  (steps > 50) && (k <= num_inputs) )  % User is the only place that reference phi_star exists !
+  while( control_on && (steps > 110) && (k <= num_inputs) )  % User is the only place that reference phi_star exists !
     
     idx_u = find( abs( (phi_star > 0).*(  0 > phi2 ) - ...
       (phi_star < 0).*(  0 < phi2 ) ) > 0 );
@@ -245,32 +300,44 @@ while( (steps < MaxSteps) )
   xi                   = Heavi(phi2)-Heavi(psi1);
   eU                   = Heavi(psi1)-Heavi(U);
   
+  lamNum = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
+  lamDen = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
+  L0     = 1; 
+  L1     = 1;
+  lambda = L1 * lamNum  / ( L0 + lamDen );
+  lambda_all = [lambda_all, lambda];
+  
   % Update phi
-  f1                   = -(U.^2).*(xi);
-  %kappa_xi(:)          = 0*phi2;%
+  f1                      = -(U.^2).*(xi);
+  kappa_phi(1:numel(phi2)) = kappa(phi2,1:numel(phi2));
   kappa_xi(:)          = kappa(delta(phi2).^2 .* xi,1:numel(xi(:))); %#ok<NASGU>
   f2                   = lambda * (kappa_xi);
   f_phi                = f1 + f2;     assert( sum(isnan(f_phi(:))) == 0 );
-  
+  if( ~control_on )
+    lambda0 = 2;
+    f_phi = 0*f_phi + lambda0 * kappa_phi;
+    lambda=L1;
+  end
   
   redist_iters         = 2;
   phi2_prev            = phi2;
-  [psi1 phi2 tb1 dphi ]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
-  
+  [psi1 phi2 tb1 dphi G]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
+    
   % Update psi
   xi                     = Heavi(phi2)-Heavi(psi1);
   g1                     = xi;
-  alphaPsi               = 0.5 / Umax;  % D(t) to zero  F bounded
-  %alphaPsi              = 2.0 / Umax;  % F(t) to zero, D bounded
-  
+  %alphaPsi               = 0.5 / Umax;  % D(t) to zero  F bounded
+  alphaPsi              = 2.0 / Umax;  % F(t) to zero, D bounded
+    
   g2                   = -eU .* ( alphaPsi * U).^2;
   f_psi                = g1+g2;
   psi1_prev            = psi1;
   [psi1 phi2 tb2 ~ ]   = update_psi( img, psi1, phi2, f_psi, dphi, redist_iters );
   
+ 
   tb = min([tb1 tb2]);
   mf1=max(abs(f_phi(:))); mf2 = max(abs(f_psi(:)));
-  fprintf('max f_phi = %f, max f_psi = %f \n',mf1,mf2 );
+  fprintf('max f_phi = %f, max f_psi = %f, lambda =%f \n',mf1,mf2,lambda );
   
   %phi2 = phi2_prev * ( mf2/(mf1+mf2) ) + phi2 * (mf1/(mf2+mf1));
   %H_U = Heavi(U.^2-epsilon);
@@ -317,10 +384,10 @@ fprintf('result = %f \n',result);
     fprintf('done! saving .... \n');
     save run_whole_shebang_demo t_all Fval_all rho_argin...
       phi2_init phi2_mid img_show_mid ...
-      img_show_init psi1 phi2 img img_show U ...
+      img_show_init psi1 phi2 lambda_all img img_show U ...
       eU Umax alphaPsi tt  steps Dval_all Norm_du_all Norm_U_all
-    setenv('rhoval',num2str(rho_argin))
-    !cp -v run_whole_shebang_demo.mat  "bridge_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
+    setenv('rhoval',[strtitle '_' num2str(rho_argin)])
+    !cp -v run_whole_shebang_demo.mat  "phantom_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
     res = 1;
   end
   function c = eval_label_dist( phiA, phiB, W )
@@ -336,9 +403,8 @@ fprintf('result = %f \n',result);
   function  [psi phi dt_a g_source] = update_psi( Img, psi, phi, f_psi, dphi,...
       redist_iters)
     g_source = 0*phi;
-    kappa_psi(1:numel(psi)) = kappa(psi,1:numel(psi));
-    lambda_now = 0*lambda;
-    dpsi  = delta(psi) .* ( f_psi   + lambda_now * kappa_psi) ;
+    
+    dpsi  = delta(psi) .* ( f_psi  ) ;
     
     
     both_maxes = max(abs([dpsi(:); dphi(:)])); % max of dphi and dpsi
@@ -346,13 +412,13 @@ fprintf('result = %f \n',result);
     psi    = psi + dt_a * dpsi;
     
     if( redist_iters > 0 )
-      dX = 1/sqrt(2);
+      dX = 1.0;
       psi   =  reinitializeLevelSetFunction(psi,1,dX,redist_iters,3,3,false() );
     end
     fprintf('');
   end
 
-  function  [psi phi dt_a dphidt] = update_phi( Img, psi, phi, f_psi, f_phi,...
+  function  [psi phi dt_a dphidt G] = update_phi( Img, psi, phi, f_psi, f_phi,...
       redist_iters)
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
     mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
@@ -361,8 +427,7 @@ fprintf('result = %f \n',result);
     Gmax_now   = max(abs(GofIandPhi(:)));
     assert( Gmax_now <= Gmax );
     g_alpha = -GofIandPhi + f_phi;
-    
-    lambda_now = 0*lambda;
+    G          = -GofIandPhi;
     g_source   = delta(phi) .*g_alpha;
     dphi       = g_source;
     
@@ -375,7 +440,7 @@ fprintf('result = %f \n',result);
     dphidt= dt_a * dphi;
     
     if( redist_iters > 0 )
-      dX = 1/sqrt(2);
+      dX = 1.0;
       phi   =  reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,3,false() );
       
     end
@@ -390,15 +455,17 @@ fprintf('result = %f \n',result);
     
     % zero out the non-active colors for psi1 (active red), phi2 (active green)
     imgr( abs( phi2 ) < phi_show_thresh ) = 0;
-    imgg( abs( psi1 ) < phi_show_thresh ) = 0;
-    %imgb( abs( phi2 ) < phi_show_thresh ) = 0;
+    %imgg( abs( psi1 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi2 ) < phi_show_thresh ) = 0;
     %imgb( abs( psi1 ) < phi_show_thresh ) = 0;
     
-    imgb( abs(U)>Umax*0.1 ) = (imgb(abs(U)>Umax*0.1)/2 + imgb(abs(U)>Umax*0.1)/Umax );
+  %  imgb( abs(U)>Umax*0.1 ) = (imgb(abs(U)>Umax*0.1)/2 + imgb(abs(U)>Umax*0.1)/Umax );
     
-    imgr( abs( psi1 ) < phi_show_thresh) = (imgr( abs( psi1 ) < phi_show_thresh) .* ...
-      abs( psi1(abs(psi1) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1 * (phi_show_thresh - abs( psi1(abs(psi1) < phi_show_thresh ) ) )/phi_show_thresh );
+%     imgr( abs( psi1 ) < phi_show_thresh) = (imgr( abs( psi1 ) < phi_show_thresh) .* ...
+%       abs( psi1(abs(psi1) < phi_show_thresh ) )/phi_show_thresh  + ...
+%       1 * (phi_show_thresh - abs( psi1(abs(psi1) < phi_show_thresh ) ) )/phi_show_thresh );
+%     
+   
     
     imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ...
       abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
@@ -407,7 +474,13 @@ fprintf('result = %f \n',result);
     
     
     %imgr( abs(U)>5 ) = 0; imgg( abs(U)>5 ) = 0;
-    %imgb( abs(U)>0 ) = (imgb(abs(U)>0)/2 + abs(U(abs(U)>0))/max(abs(C12(:))) );
+    Ushow = imfilter(U,fspecial('gaussian',[5 5],2),'replicate');
+    imgb( abs(Ushow)>Umax/4 ) = 2*abs(Ushow(abs(Ushow)>Umax/4))/Umax; % (imgb(abs(U)>Umax/4))/2 + ;
+    imgg( (abs(phi2)>=phi_show_thresh).*(abs(Ushow)>Umax/4) > 0 ) = 0.1; % (imgb(abs(U)>Umax/4))/2 + ;
+    imgr( (abs(phi2)>=phi_show_thresh).*(abs(Ushow)>Umax/4) > 0 ) = 0.1; % (imgb(abs(U)>Umax/4))/2 + ;
+    imgb( abs( phi2 ) < phi_show_thresh )   = imgb( abs( phi2 ) < phi_show_thresh )/4;
+    imgb( abs( phi2 ) < phi_show_thresh/2 ) = 0;
+    
     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
@@ -416,15 +489,16 @@ fprintf('result = %f \n',result);
       ', steps = ' num2str_fixed_width(steps), ', dt = ' num2str_fixed_width(dt0) ]);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(psi1(:))),tt, steps);
     
-    %imwrite(img_show,[ 'closed_loop_bridge_demo_' num2str_fixed_width(steps) '.png']);
-    save_title = [ 'data_closed_loop_bridge_demo_' num2str_fixed_width(steps) '.mat'];
-    save(save_title,'img','img_show','phi2','phi_star','psi1','U','eU','xi');
+    imwrite(img_show,[ strtitle '_imgs_' num2str_fixed_width(steps) '.png']);
+    save_title = [ strtitle '_data_' num2str_fixed_width(steps) '.mat'];
+    save(save_title,'img','lambda','img_show','phi2','phi_star','psi1','U','eU','xi');
     
     sfigure(1); subplot(1,2,1);
     plot( t_all,Dval_all,'r+' ); hold on;
     plot( t_all,Fval_all,'g+');
+    plot( t_all,lambda_all,'m--');
     hold off;
-    legend('D(\phi,\psi)','F(\psi,U)'); % '||\delta(\phi)||_{L2}',
+    legend('D(\phi,\psi)','F(\psi,U)','\lambda(t)'); % '||\delta(\phi)||_{L2}',
     xlabel('time (sec)');
     title('error signals ');
     sh2=sfigure(2,1.25,2.2);
