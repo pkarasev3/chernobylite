@@ -231,6 +231,7 @@ fprintf('result = %f \n',result);
     Dval = 0.5 * trapz(trapz( (Heavi(phiA)-Heavi(phiB)).^2 ) );
     
   end
+
                              
   function  [phi dt_a g_source] = update_phi( Img, phi, Coupling, ... 
                                                redist_iters)

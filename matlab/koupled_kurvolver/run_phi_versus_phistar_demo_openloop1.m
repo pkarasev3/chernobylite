@@ -15,7 +15,8 @@ function run_phi_versus_phistar_demo_openloop1()
   % sfigure(2); semilogy(t_allb,Dval_allb,'-.','color',[0 0.4 .6]); hold on;  
    
   [Dval_allc t_allc] = run_core(     (1/(4))^4 ,dt_init);
-   sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
+  
+  % sfigure(2); semilogy(t_allc,Dval_allc,'--','color',[0 0.8 .2]); hold on;  
   
 %    [Dval_alld t_alld] = run_core(     (1/(16)) ,dt_init);
 %    sfigure(2); semilogy(t_alld,Dval_alld,'-.','color',[0.6 0.2 .2]); hold on;  
@@ -170,18 +171,23 @@ Dval            = eval_label_dist(phi1,phi2);
 
 Dval_all        = [Dval];
 
+
 Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
 lambda          = 0.03 * Gmax;
 dt0             = dt_init;
-MaxTime         = 0.25;
+MaxTime         = 2.0;
 
+imgFunc_all     = [MeansCost(img,phi2,lambda,Heavi)];
 
 while( (tt < MaxTime) && (steps < MaxSteps) )
 
   phi1                 = phi_star;
   
-  [phi2 tb]  = update_phi( img, phi2, 0*phi2,2);
+  [phi2 tb]   = update_phi( img, phi2, 0*phi2,2);
   
+  imgFunc_all = [imgFunc_all , MeansCost(img,phi2,lambda,Heavi) ];
+  tt          = tt + tb;
+  t_all       = [t_all, tt];
   
   % setup display image
   displayLevelSets();
@@ -265,6 +271,7 @@ fprintf('result = %f \n',result);
     imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
    
    
+    sfigure(2); plot(t_all,imgFunc_all-imgFunc_all(1),'m-.'); xlabel('time'); ylabel('image functional');
     
   
     if( steps == 10 )
