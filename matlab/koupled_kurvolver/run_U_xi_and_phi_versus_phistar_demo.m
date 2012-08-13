@@ -36,7 +36,7 @@ end
 
 
 function [img phi_star phi2 strtitle] = get_img_phantom_bridge()
-img      = phantom();
+img      = phantom(); 
 img(img==0) = 0.1;
 [star_i star_j] = find( ( (img < 1e-1) - (img == 0) ) > 1e-3  );
 keep_idx  = find( star_j < 128 );
@@ -44,10 +44,16 @@ star_i    = star_i(keep_idx);
 star_j    = star_j(keep_idx);
 idx_left  = sub2ind( size(img), star_i, star_j);
 left_stub = img*0-1; left_stub( idx_left ) = 1;
-img(145:156,120:145) =  img(150,124); % Make a 'bridge' connecting the two chunks
-img = img + (randn(size(img))*5e-2);
+
+before_bridge        = img(142:160,118:147);
+img(142:160,118:147) =  img(150,124); % Make a 'bridge' connecting the two chunks
+[bx by] = meshgrid( linspace(-1,1,size(before_bridge,2)),linspace(-1,1,size(before_bridge,1)));
+bridge_weight = min( 0.5+0*bx, max(max( abs(bx), abs(by) ),0*bx) );
+img(142:160,118:147) = img(142:160,118:147).*(1-bridge_weight) + before_bridge.*(bridge_weight);
+
+img = img + (randn(size(img))*5e-2); 
 img = abs(img+0.1).^(1.5);
-img(img>1)=1;
+img(img>1)=1; 
 
 [m n] = size(img);
 [xx yy] = meshgrid(1:m,1:n);
@@ -153,10 +159,10 @@ addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
 addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
-[img phi_star phi2 strtitle] = get_img_phantom_split(); %get_img_phantom_bridge();
+[img phi_star phi2 strtitle] = get_img_phantom_bridge(); %get_img_phantom_split(); 
 %[img phi_star phi2 strtitle]  = get_img_phantom_white();
 
-control_on = true();
+control_on = false(); % true(); %
 if( ~control_on )
   strtitle = [strtitle '_OpenLoop'];
 end
@@ -252,24 +258,24 @@ kappa_phi=0*G;
 
 while( (steps < MaxSteps) )
   
-  
-  
   % Generate and accumulate user inputs
   num_inputs = 5;
-  if( steps > 150 )
+  if( steps > 180 )
     num_inputs = 1;
     %lambda          =  (Gmax + 1);
   end
   k = 1;
   U_   = U;
-  while( control_on && (steps > 110) && (k <= num_inputs) )  % User is the only place that reference phi_star exists !
+  stepAtInputStart = 60; % 50 for bridge
+  stepAtInputStop  = 300;
+  while( control_on && ( steps > stepAtInputStart ) && (k <= num_inputs) )  % User is the only place that reference phi_star exists !
     
     idx_u = find( abs( (phi_star > 0).*(  0 > phi2 ) - ...
       (phi_star < 0).*(  0 < phi2 ) ) > 0 );
     %idx_dont_u = find(  (abs(U)<1e-9).*(phi_star>epsilon) > 0 );
     %idx_u = setdiff( idx_u, idx_dont_u );
     
-    if( (steps > 400) || (numel(idx_u) < k ) )
+    if( (steps > stepAtInputStop) || (numel(idx_u) < k ) )
       px = 1; py = 1;
     else
       idx_u   = idx_u( randperm(numel(idx_u)) );
@@ -324,16 +330,19 @@ while( (steps < MaxSteps) )
   [psi1 phi2 tb1 dphi G]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
     
   % Update psi
-  xi                     = Heavi(phi2)-Heavi(psi1);
-  g1                     = xi;
-  %alphaPsi               = 0.5 / Umax;  % D(t) to zero  F bounded
-  alphaPsi              = 2.0 / Umax;  % F(t) to zero, D bounded
-    
-  g2                   = -eU .* ( alphaPsi * U).^2;
-  f_psi                = g1+g2;
-  psi1_prev            = psi1;
-  [psi1 phi2 tb2 ~ ]   = update_psi( img, psi1, phi2, f_psi, dphi, redist_iters );
-  
+  psi_iters = 2;
+  for mp=1:psi_iters
+    xi                     = Heavi(phi2)-Heavi(psi1);
+    eU                     = Heavi(psi1)-Heavi(U);
+    g1                     = 0.7 * xi;
+    %alphaPsi              = 0.5 / Umax;  % D(t) to zero  F bounded
+    alphaPsi               = 1.0 / Umax;  % F(t) to zero, D bounded
+
+    g2                   = -eU .* ( alphaPsi * U).^2;
+    f_psi                = g1+g2;
+    psi1_prev            = psi1;
+    [psi1 phi2 tb2 ~ ]   = update_psi( img, psi1, phi2, f_psi, dphi, redist_iters );
+  end
  
   tb = min([tb1 tb2]);
   mf1=max(abs(f_phi(:))); mf2 = max(abs(f_psi(:)));
@@ -448,42 +457,12 @@ fprintf('result = %f \n',result);
   end
 
   function displayLevelSets()
-    img_show = repmat(img0,[1 1 3]);
-    imgb = img_show(:,:,3);
-    imgg = img_show(:,:,2);
-    imgr = img_show(:,:,1);
+
+    phi_show_thresh = 2.0;
+    img_show = draw_contour_pair_on_image(img0,psi1,phi2,phi_show_thresh,U,Umax);
+
+    img_show = img_show(17:end-16,65:end-64,:); % truncate ROI  %img_show(9:(end-8),33:(end-32),:);
     
-    % zero out the non-active colors for psi1 (active red), phi2 (active green)
-    imgr( abs( phi2 ) < phi_show_thresh ) = 0;
-    %imgg( abs( psi1 ) < phi_show_thresh ) = 0;
-    imgb( abs( phi2 ) < phi_show_thresh ) = 0;
-    %imgb( abs( psi1 ) < phi_show_thresh ) = 0;
-    
-  %  imgb( abs(U)>Umax*0.1 ) = (imgb(abs(U)>Umax*0.1)/2 + imgb(abs(U)>Umax*0.1)/Umax );
-    
-%     imgr( abs( psi1 ) < phi_show_thresh) = (imgr( abs( psi1 ) < phi_show_thresh) .* ...
-%       abs( psi1(abs(psi1) < phi_show_thresh ) )/phi_show_thresh  + ...
-%       1 * (phi_show_thresh - abs( psi1(abs(psi1) < phi_show_thresh ) ) )/phi_show_thresh );
-%     
-   
-    
-    imgg( abs( phi2 ) < phi_show_thresh) = (imgg( abs( phi2 ) < phi_show_thresh) .* ...
-      abs( phi2(abs(phi2) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1 * (phi_show_thresh - abs( phi2(abs(phi2) < phi_show_thresh ) ) )/phi_show_thresh );
-    
-    
-    
-    %imgr( abs(U)>5 ) = 0; imgg( abs(U)>5 ) = 0;
-    Ushow = imfilter(U,fspecial('gaussian',[5 5],2),'replicate');
-    imgb( abs(Ushow)>Umax/4 ) = 2*abs(Ushow(abs(Ushow)>Umax/4))/Umax; % (imgb(abs(U)>Umax/4))/2 + ;
-    imgg( (abs(phi2)>=phi_show_thresh).*(abs(Ushow)>Umax/4) > 0 ) = 0.1; % (imgb(abs(U)>Umax/4))/2 + ;
-    imgr( (abs(phi2)>=phi_show_thresh).*(abs(Ushow)>Umax/4) > 0 ) = 0.1; % (imgb(abs(U)>Umax/4))/2 + ;
-    imgb( abs( phi2 ) < phi_show_thresh )   = imgb( abs( phi2 ) < phi_show_thresh )/4;
-    imgb( abs( phi2 ) < phi_show_thresh/2 ) = 0;
-    
-    
-    img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
-    img_show(img_show>1)=1; img_show(img_show<0)=0;
     sh=sfigure(1,3.5,1.75); subplot(1,2,2); imshow(img_show);
     title(['image and contours, ||U||_2=' num2str(norm(U)) ', t=' num2str_fixed_width(tt,7), ...
       ', steps = ' num2str_fixed_width(steps), ', dt = ' num2str_fixed_width(dt0) ]);
