@@ -1,48 +1,16 @@
-function dialdemo4
-% Dialemo al� JFreeGraph-Demo
-%
-% The code behind is just a demo of what is possible with JFreeChart using it in Matlab. I played a little
-% with codesnippets I found on the web and the API-Documentation.
-% (http://www.jfree.org/jfreechart/api/javadoc/index.html). When  you want to explore the whole functionality,
-% I think it is better to buy the JFreeChart Developer Guide (http://www.jfree.org/jfreechart/devguide.html). 
-%
-% This function shows a Dial as an example of JFreeChart (http://www.jfree.org/). The Idea
-% to this code is based on the UndocumentedMatlab-Blog of Yair Altman, who shows a sample Code of JFreeChart
-% for creating a PieChart (http://undocumentedmatlab.com/blog/jfreechart-graphs-and-gauges/#comments)
-%
-% Within the plot you can modify the values for the needles by using the sliders.
-%
-% Before this demo works, you need to download JFreeChart and make matlab get to know with it. There are 2
-% ways you can do this:
-%
-% 1. Add the jcommon and jfreechart jar to the dynamic matlab JavaClassPath (uncommented lines in the first
-%    cell an change path to your local installation path)
-% 2. Add the jcommon and jfreechart jar to the static matlab JavaClassPath (see Matlab Help, modify
-%    classpath.txt on matlabroot\toolbox\local) 
-%
-% Finally you must donwload jcontrol from Malcom Lidierth
-% (http://www.mathworks.com/matlabcentral/fileexchange/15580-using-java-swing-components-in-matlab).
+function [plot_handle] = make_speedometer( vin, vref, fh )
 % 
+% Draw a speedometer chart 
 %
-% Bugs and suggestions:
-%    Please send to Sven Koerner: koerner(underline)sven(add)gmx.de
-% 
-% You need to download and install first:
-%    http://sourceforge.net/projects/jfreechart/files/1.%20JFreeChart/1.0.13/ 
-%    http://sourceforge.net/projects/jfreechart/files/1.%20JFreeChart/1.0.9/
-%    http://www.mathworks.com/matlabcentral/fileexchange/15580-using-java-swing-components-in-matlab 
+% Assumes you have jcontrol and jfreecharts added to path, 
+% for example like:
 %
+% javaaddpath([pwd '/jfreechart-1.0.14/lib/jcommon-1.0.17.jar'])
+% javaaddpath([pwd '/jfreechart-1.0.14/lib/jfreechart-1.0.14.jar'])
 %
-% Programmed by Sven Koerner: koerner(underline)sven(add)gmx.de
-% Date: 2011/02/14 
-
-%%  JFreeChart to matlab
-%  Add the JavaPackages to the static javaclasspath (see Matlab Help, modify classpath.txt on
-%  matlabroot\toolbox\local) or alternativ turn it to the dynamic path (uncomment the next and change path to jFreeeChart) 
-
-%addpath('./@jcontrol/')
-javaaddpath ./jfreechart-1.0.14/lib/jcommon-1.0.17.jar
-javaaddpath ./jfreechart-1.0.14/lib/jfreechart-1.0.14.jar
+% returns a plot_handle, 
+% which you pass to "set_vin_arrow" and "set_vref_arrow"
+%
 
 
 %% Dialdemo4
@@ -77,9 +45,16 @@ import org.jfree.ui.StandardGradientPaintTransformer;
 
 %% Start
 
+if ~exist('vin','var')
+  vin = 0.0;
+end
+if ~exist('vref','var')
+  vref= 70.0;
+end
+
 % Create Datasets
-this.dataset1 =  DefaultValueDataset(10.0);
-this.dataset2 = DefaultValueDataset(70.0);
+this.dataset1 = DefaultValueDataset(  vin );
+this.dataset2 = DefaultValueDataset(  vref);
         
 plot = DialPlot();                                      % Create DialplotObject
 plot.setView(0.0, 0.0, 1.0, 1.0);                       % Setting Viewing Parameters
@@ -93,8 +68,10 @@ dialFrame.setForegroundPaint(Color.darkGray);           % Set BackgroundColor of
 plot.setDialFrame(dialFrame);                           % Set the Frame to the plot
 
 
-gp = GradientPaint(Point(), Color(255/255, 255/255, 255/255), Point(), ... 
-           Color(100/255, 100/255, 100/255));   % Create Gradient-Color for DialBackground
+gp = GradientPaint(Point(), ...  % Create Gradient-Color for DialBackground
+           Color(255/255, 255/255, 255/255), Point(), ... 
+           Color(100/255, 100/255, 100/255));  
+
 db = DialBackground(gp);    % Set the Color to DialBackground
 db.setGradientPaintTransformer(StandardGradientPaintTransformer(GradientPaintTransformType.VERTICAL));      % Set the GradiensPainTransformer to the DialBackground
 plot.setBackground(db);             % add the DialBackGround to the plot
@@ -175,88 +152,91 @@ plot.addLayer(needle);
 cap = DialCap();      % Create a Dailcap
 cap.setRadius(0.10);  % set the radius of dialcap
 plot.setCap(cap);     % add dialcap to plot
+
+plot_handle=plot;     % return this
  
 %% Create Chart Area with Panel
 chart1 = JFreeChart(plot);
 chart1.setTitle('Velameter v0.1');
 cp1 =  ChartPanel(chart1);
 
-% New figure
-fh = figure('Units','normalized','position',[0.1,0.1,  0.2,  0.4]);
+if ~exist('fh','var')  % New figure
+  fh = figure('Units','normalized','position',[0.1,0.1,  0.2,  0.4]);
+else
+  sfigure(fh); 
+end
 
 % ChartPanel with JControl
 jp = jcontrol(fh, cp1,'Position',[0.01 0.07 0.98 0.88]);
 
 
+        
+            
+
+% %% Slider Callback for Outer-Needle
+% function sh_callback_1(varargin)
+% hObject = varargin{1,1};  
+% % disp(['Slider moved to ' num2str(get(hObject,'Value'))]);   % diplay stuff in Matlab Command Window
+% 
+% % Get Handle from java plot object
+% plot_cell = get(hObject,'Userdata' );
+% plot_h    = plot_cell{1,1};    % handle of plot_object
+% 
+% % Update DialPlot
+% plot_h.setDataset(org.jfree.data.general.DefaultValueDataset(get(hObject,'Value')));   %  change value of dataset1
+% 
+% 
+% %% Slider Callback for Inner-Needle
+% function sh_callback_2(varargin)
+% hObject = varargin{1,1};  
+% %disp(['Slider moved to ' num2str(get(hObject,'Value'))]);   % diplay stuff in Matlab Command Window
+% 
+% % Get Handle from java plot object
+% plot_cell = get(hObject,'Userdata' );
+% plot_h    = plot_cell{1,1};    % handle of plot_object
+% 
+% % Update DialPlot
+% plot_h.setDataset(1, org.jfree.data.general.DefaultValueDataset(get(hObject,'Value')));   %  change value of dataset2
+% 
+
+
+
+
+% Not used, but if want to add sliders:            
+            
 % Matlab-Slider for dataset1
-sh = uicontrol(fh,'Style','slider',...
-                'Max',60,'Min',-40,'Value',10,...
-                'SliderStep',[0.01 0.01],...
-                'Units','normalized', ...
-                'Position',[0.01 0.01 0.90/2  0.03], ...
-                'UserData', {plot}, ...                       % save the handle of the plot-object to Userdata to change values
-                'Callback',@sh_callback_1);
-            
-
-            
-% Matlab-Slider for dataset2
-sh2 = uicontrol(fh,'Style','slider',...
-                'Max',100,'Min',0,'Value',70,...
-                'SliderStep',[0.01 0.01],...
-                'Units','normalized', ...
-                'Position',[0.95/2 0.01 0.98/2 0.03], ...
-                'UserData', {plot}, ...                       % save the handle of the plot-object to Userdata to change values
-                'Callback',@sh_callback_2);
-            
-            
-% Matlab-Text for Sliders
-uicontrol(fh,'Style','Text',...
-                'Units','normalized', ...
-                'Position',[0.01 0.04 0.90/2  0.03], ...                
-                'String', 'Outer Needle:');
-            
-uicontrol(fh,'Style','Text',...
-                'Units','normalized', ...
-                'Position',[0.95/2 0.04 0.98/2  0.03], ...                
-                'String', 'Inner Needle:');
-
-            
-            
-
-%% Slider Callback for Outer-Needle
-function sh_callback_1(varargin)
-hObject = varargin{1,1};  
-% disp(['Slider moved to ' num2str(get(hObject,'Value'))]);   % diplay stuff in Matlab Command Window
-
-% Get Handle from java plot object
-plot_cell = get(hObject,'Userdata' );
-plot_h    = plot_cell{1,1};    % handle of plot_object
-
-% Update DialPlot
-plot_h.setDataset(org.jfree.data.general.DefaultValueDataset(get(hObject,'Value')));   %  change value of dataset1
-
-
-%% Slider Callback for Inner-Needle
-function sh_callback_2(varargin)
-hObject = varargin{1,1};  
-%disp(['Slider moved to ' num2str(get(hObject,'Value'))]);   % diplay stuff in Matlab Command Window
-
-% Get Handle from java plot object
-plot_cell = get(hObject,'Userdata' );
-plot_h    = plot_cell{1,1};    % handle of plot_object
-
-% Update DialPlot
-plot_h.setDataset(1, org.jfree.data.general.DefaultValueDataset(get(hObject,'Value')));   %  change value of dataset2
-
-
-
-
-
-
-
-            
-            
-
+% sh = uicontrol(fh,'Style','slider',...
+%                 'Max',60,'Min',-40,'Value',10,...
+%                 'SliderStep',[0.01 0.01],...
+%                 'Units','normalized', ...
+%                 'Position',[0.01 0.01 0.90/2  0.03], ...
+%                 'UserData', {plot}, ...                       % save the handle of the plot-object to Userdata to change values
+%                 'Callback',@sh_callback_1);
+%             
+% 
+%             
+% % Matlab-Slider for dataset2
+% sh2 = uicontrol(fh,'Style','slider',...
+%                 'Max',100,'Min',0,'Value',70,...
+%                 'SliderStep',[0.01 0.01],...
+%                 'Units','normalized', ...
+%                 'Position',[0.95/2 0.01 0.98/2 0.03], ...
+%                 'UserData', {plot}, ...                       % save the handle of the plot-object to Userdata to change values
+%                 'Callback',@sh_callback_2);
+%             
+%             
+% % Matlab-Text for Sliders
+% uicontrol(fh,'Style','Text',...
+%                 'Units','normalized', ...
+%                 'Position',[0.01 0.04 0.90/2  0.03], ...                
+%                 'String', 'Outer Needle:');
+%             
+% uicontrol(fh,'Style','Text',...
+%                 'Units','normalized', ...
+%                 'Position',[0.95/2 0.04 0.98/2  0.03], ...                
+%                 'String', 'Inner Needle:');
+% 
+    
 
 
 

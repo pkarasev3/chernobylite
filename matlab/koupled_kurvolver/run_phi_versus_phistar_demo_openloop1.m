@@ -204,7 +204,7 @@ fprintf('result = %f \n',result);
   function res = save_all( )
     fprintf('done! saving .... \n');
     save run_openloop_bridge_demo t_all ... 
-                             phi2_init phi2_mid img_show_mid img_show_init phi1 phi2 img img_show  tt xx yy  steps Dval_all 
+                          imgFunc_all   phi2_init phi2_mid img_show_mid img_show_init phi1 phi2 img img_show  tt xx yy  steps Dval_all 
     setenv('rhoval',num2str(rho_argin))
     !cp -v run_openloop_bridge_demo.mat  "bridge_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
     res = 1;                               
