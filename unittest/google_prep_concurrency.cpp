@@ -40,6 +40,20 @@ struct Worker {
   std::list<int>*  L; // a pointer to shared memory object
 };
 
+/**
+ * 
+ * Sample Output, |L| is the list size, key is the # of thread
+
+key=1, |L|=506, prev|L|=1
+key=3, Failed to get lock
+key=2, |L|=1023, prev|L|=506
+key=5, Failed to get lock
+key=4, |L|=1491, prev|L|=1023
+key=7, Failed to get lock
+key=8, Failed to get lock
+key=6, |L|=2015, prev|L|=1491
+key=9, |L|=2550, prev|L|=2015
+ * */
 
 int main( int argc, char* argv[] )
 {
