@@ -7,7 +7,7 @@ javaaddpath([pwd]);
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/util/');
 
-b_compensateMotion = true();
+b_compensateMotion = false();
 
 opts = struct('output_port',5001,'number_of_retries',1000,...
                     'compensation', b_compensateMotion);
@@ -20,6 +20,7 @@ retry             = 0;
 if ~exist('server_socket','var')
   server_socket  = [];
   io_socket      = [];
+  sh             = [];
 else
   server_socket.close();
   io_socket.close();
@@ -104,7 +105,7 @@ while true
       
       % Generate the return bytes
       message = typecast( uint16([xyF(1),xyF(2)]),'uint8');
-      sfigure(1); imshow(img); hold on;
+      sh=sfigure(1); imshow(img); hold on;
       
       plot( [xy0_comp(1), xyF(1)], [xy0_comp(2), xyF(2)],...
         'c-o', 'MarkerSize',10,'LineWidth',2);
@@ -129,6 +130,9 @@ while true
     % clean up
     server_socket.close;
     io_socket.close;
+    if ~isempty(sh)
+      close(sh);
+    end
     break;
     
   catch
