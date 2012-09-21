@@ -9,15 +9,17 @@
 #include <cstdio>
 using namespace std;
 
-boost::mutex  GlobalMutex;
+//
+
 
 struct Worker {
 
-  Worker():key(0),L(NULL)
+  Worker():key(0),L(NULL),GlobalMutex(NULL)
   {
   }
   void operator()() { // do stuff
-      boost::mutex::scoped_lock  lock(GlobalMutex, boost::try_to_lock);
+      boost::mutex::scoped_lock  lock(*GlobalMutex,
+                                      boost::try_to_lock);
       if( lock ) {
         int prev_size = (int) L->size();
         for( int crunch = 0; crunch < 1024; crunch++ ) {
@@ -38,22 +40,40 @@ struct Worker {
   }
   int key;          // number of calls to this worker
   std::list<int>*  L; // a pointer to shared memory object
+  boost::mutex*  GlobalMutex;
 };
+
+/**
+ * 
+ * Sample Output, |L| is the list size, key is the # of thread
+
+key=1, |L|=506, prev|L|=1
+key=3, Failed to get lock
+key=2, |L|=1023, prev|L|=506
+key=5, Failed to get lock
+key=4, |L|=1491, prev|L|=1023
+key=7, Failed to get lock
+key=8, Failed to get lock
+key=6, |L|=2015, prev|L|=1491
+key=9, |L|=2550, prev|L|=2015
+ * */
 
 
 int main( int argc, char* argv[] )
 {
+
   std::list<int> shared;
   shared.push_back(0);
 
   int k    = 0;
   int kmax = 10;
   std::vector<boost::shared_ptr<boost::thread> > threads;
-
+  boost::shared_ptr<boost::mutex>  globalMutex(new boost::mutex);
   while( ++k < kmax )  {
     Worker w;
     w.L   = &shared;
     w.key = k;
+    w.GlobalMutex = globalMutex.get();
     boost::shared_ptr<boost::thread>  T(new boost::thread(w) );
     threads.push_back( T );
     usleep(10000);
@@ -66,4 +86,8 @@ int main( int argc, char* argv[] )
   return 0;
 }
 
-
+//int heads = 130;
+//for (int bullets = 0; bullets < heads; bullets++ ) {
+//  int n = bullets;
+//  puts(((char*)&n)[0]==n?"Y":"N");
+//}
