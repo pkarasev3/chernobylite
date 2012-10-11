@@ -7,7 +7,7 @@ javaaddpath([pwd]);
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/util/');
 
-b_compensateMotion = false();
+b_compensateMotion = true();
 
 opts = struct('output_port',5001,'number_of_retries',1000,...
                     'compensation', b_compensateMotion);
@@ -46,12 +46,13 @@ while true
     io_socket = server_socket.accept();
     fprintf(1, 'Client connected\n');
     
+    
     input_stream    = io_socket.getInputStream();
     d_input_stream  = DataInputStream(input_stream);
     
     frameIdx = 0;
     g_prv    = [];
-    xy0      = [350,240]; % initial track-point
+    xy0      = [320,240]; % initial track-point
     gotFrame = 1;
     headerLen      = 192; % sizeof( meta_data ) in cpp
     expected_bytes = headerLen + 640 * 480 * 3; % most we can write from matlab seems to be: 250240
@@ -65,7 +66,7 @@ while true
       while (RecvBytes < expected_bytes) && (tB < 5.0) %(bytes_available == 0)
         bytes_available = input_stream.available;
         if bytes_available > 0
-          fprintf(1,'bytes = %d .. ', bytes_available);
+          fprintf(1,'bytes = %d, total= %d .. ', bytes_available, RecvBytes);
           data_reader = DataReader(d_input_stream);
           recv        = data_reader.readBuffer(bytes_available);
           data_raw    = [data_raw, recv(:)'];
@@ -82,20 +83,15 @@ while true
         continue;
       end
       
+      fprintf( 'expected bytes = %d, got %d\n', expected_bytes, numel(data_raw(:)) );
       % Should be done receiving from client now, read it.
-      meta_data  = typecast(data_raw(1:headerLen),'double');
-      g_WC       = reshape(meta_data(7:7+15),[4,4])';
-      f          = meta_data(23); assert( (1e2 < f) && (f < 1e4) ); % ensure sane f
-      disp('g_WC = '); disp(g_WC);
-      img_raw    = typecast(data_raw(headerLen+1:end),'uint8');
-      B=reshape( img_raw(1:3:end),[640,480])';
-      G=reshape( img_raw(2:3:end),[640,480])';
-      R=reshape( img_raw(3:3:end),[640,480])';
-      img        = uint8(zeros(480,640,3)); img(:,:,1)=R; img(:,:,2)=G; img(:,:,3)=B;
+      [img, g_WC, f] = unpack_ktrack_data( data_raw, headerLen);
+      fprintf('unpacked OK!\n');
       
       xy0prev=xy0;
-      if opts.compensation
+      if opts.compensation3
         [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
+        fprintf('compensated OK!\n');
       end
       
       % Run the tracker
