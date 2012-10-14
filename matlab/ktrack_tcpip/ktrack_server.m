@@ -7,10 +7,11 @@ javaaddpath([pwd]);
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/util/');
 
-b_compensateMotion = false();
-
+b_compensateMotion = true();
+b_computeHorizon   = true();
 opts = struct('output_port',5001,'number_of_retries',1000,...
-                    'compensation', b_compensateMotion);
+                    'compensation', b_compensateMotion,...
+                    'horizon', b_computeHorizon);
 disp(opts);
 
 number_of_retries = opts.number_of_retries; % set to -1 for infinite
@@ -22,8 +23,8 @@ if ~exist('server_socket','var')
   io_socket      = [];
   sh             = [];
 else
-  server_socket.close();
-  io_socket.close();
+  server_socket.close(); %#ok<SUSENS>
+  io_socket.close(); %#ok<SUSENS>
 end
 
 while true
@@ -97,6 +98,14 @@ while true
       if opts.compensation
         [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
       end
+      
+      if opts.horizon
+        [horizonU]    = getMetaHorizon( g_WC, img_in, f );
+        horizon_show = horizonU .* rgb2gray( double(img) );
+        sfigure(2); 
+        imagesc(horizon_show); title('horizon metadata');
+      end
+      
       
       % Run the tracker
       xyF = getTrackPoint( img, xy0, 'local_max_bright' );
