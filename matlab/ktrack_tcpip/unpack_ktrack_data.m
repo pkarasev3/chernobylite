@@ -3,7 +3,7 @@ function [img, g_WC, f] = unpack_ktrack_data( data_raw, headerLen)
     meta_data  = typecast(data_raw(1:headerLen),'double');
     g_WC       = reshape(meta_data(7:7+15),[4,4])';
     
-    bHasNoise  = (rand(1,1) > 0.95);
+    bHasNoise  = (0*rand(1,1) > 0.95);
     if( bHasNoise )
       noise      = [ expm( skewsym(randn(3,1)*0.05) ) , 0.05*randn(3,1); [0 0 0 1] ];
       disp('before noise g_WC = '); disp(g_WC);

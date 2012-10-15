@@ -89,7 +89,7 @@ while true
       fprintf('unpacked OK!\n');
       
       xy0prev=xy0;
-      if opts.compensation3
+      if opts.compensation
         [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
         fprintf('compensated OK!\n');
       end
