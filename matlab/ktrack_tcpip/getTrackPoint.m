@@ -16,10 +16,22 @@ function xyF = local_max_bright( img, xy0 )
   yrange = y0-sz:y0+sz; yrange(yrange<1) = []; yrange(yrange>H) = [];
   subimg = rgb2gray( img( yrange, xrange,:) );
   subimg = imfilter(double(subimg),ones(3,3)/9,'replicate');
-  [ym xm] = find( subimg == max(subimg(:)) );
+  
+  fprintf('getting ym, xm ... is empty subimg? %d , %d \n',numel(subimg));
+  if (0 == numel(subimg) )
+    fprintf('not OK, pushing towards iamge center!\n')
+    xyF = xy0(:) + 0.01*( [size(img,2)/2 ; size(img,1)/2] - xy0(:) ); 
+    fprintf('now OK\n');
+  else
+    [ym xm] = find( subimg == max(subimg(:)) );
+    xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];
+    fprintf('OK! \n')
+  end
+  
+  
   
   assert( 1-sz-1+x0 == x0-sz ); assert( 2*sz+1 -sz -1 + x0 == x0+sz );
-  xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];
+  
   
   return;
 end

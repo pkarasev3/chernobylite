@@ -8,9 +8,10 @@ addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/util/');
 
 b_compensateMotion = true();
-
+b_computeHorizon   = true();
 opts = struct('output_port',5001,'number_of_retries',1000,...
-                    'compensation', b_compensateMotion);
+                    'compensation', b_compensateMotion,...
+                    'horizon', b_computeHorizon);
 disp(opts);
 
 number_of_retries = opts.number_of_retries; % set to -1 for infinite
@@ -22,8 +23,8 @@ if ~exist('server_socket','var')
   io_socket      = [];
   sh             = [];
 else
-  server_socket.close();
-  io_socket.close();
+  server_socket.close(); %#ok<SUSENS>
+  io_socket.close(); %#ok<SUSENS>
 end
 
 while true
@@ -94,8 +95,18 @@ while true
         fprintf('compensated OK!\n');
       end
       
+      if opts.horizon
+        [horizonU]    = getMetaHorizon( g_WC, img, f );
+        horizon_show = horizonU .* (255+rgb2gray( double(img) ));
+        sfigure(2); 
+        imagesc(horizon_show); title('horizon metadata');
+        fprintf('got horizon OK!\n');
+      end
+      
+      
       % Run the tracker
       xyF = getTrackPoint( img, xy0, 'local_max_bright' );
+      fprintf('trackpoint OK!\n');
       xy0_comp   = xy0;
       xy0        = xyF;
       
@@ -131,8 +142,12 @@ while true
     end
     break;
     
-  catch
-    %s = lasterror
+  catch                          %#ok<CTCH> 
+    s = lasterror;               %#ok<LERR>
+    bInterestingError = isempty(strfind(s.message,'java.net.SocketTimeoutException: Accept timed out'));
+    if bInterestingError
+      disp(['last error was: ']); disp(s.stack); disp(s.message);
+    end
     if ~isempty(server_socket)
       server_socket.close
     end
