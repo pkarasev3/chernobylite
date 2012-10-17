@@ -12,11 +12,14 @@ function xyF = local_max_bright( img, xy0 )
   [H W c] = size(img);
   y0 = round(xy0(2)); x0 = round(xy0(1));
   sz = 10;
+  x0 = max( x0, 2 ); x0 = min(x0,W-1);
+  y0 = max( y0, 2 ); y0 = min(y0,W-1);
   xrange = x0-sz:x0+sz; xrange(xrange<1) = []; xrange(xrange>W) = [];
   yrange = y0-sz:y0+sz; yrange(yrange<1) = []; yrange(yrange>H) = [];
   subimg = rgb2gray( img( yrange, xrange,:) );
   subimg = imfilter(double(subimg),ones(3,3)/9,'replicate');
   
+  % This should not happen now that x0,y0 are accounted for at startup
   fprintf('getting ym, xm ... is empty subimg? %d , %d \n',numel(subimg));
   if (0 == numel(subimg) )
     fprintf('not OK, pushing towards iamge center!\n')
@@ -28,10 +31,7 @@ function xyF = local_max_bright( img, xy0 )
     fprintf('OK! \n')
   end
   
-  
-  
   assert( 1-sz-1+x0 == x0-sz ); assert( 2*sz+1 -sz -1 + x0 == x0+sz );
-  
   
   return;
 end
