@@ -2,10 +2,11 @@ function  tkr = getLevelsetTracker( params )
 % minimal params:  Img  HxWxC, control_is_on bool
 % returns: tkr struct with update_phi method
 
+  %dbstop if error;
   addpath('~/source/chernobylite/matlab/util/');
   addpath('~/source/chernobylite/matlab/display_helpers/');
   addpath('~/source/chernobylite/matlab/LSMlibPK/');
-  dbstop if error;
+  
   tkr = []; 
   tkr.CONTROL_IS_ON = params.control_is_on; 
   
@@ -17,32 +18,44 @@ function  tkr = getLevelsetTracker( params )
   tkr.yy       = yy;
   
   [epsilon, dX]= get_params();
-  tkr.phi      = (100)*(0.02 - xx.^2 - yy.^2);
+  tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 200, dX, 2, 3, 2, true() );
   tkr.U        = 0*tkr.phi;
-  tkr.lambda   = 0.1 * ( max((img_in(:))) - min((img_in(:))) );
+  tkr.lambda   = 0.5 * ( max((img_in(:))) - min((img_in(:))) );
   
   % METHODS 
   tkr.update_phi = @update_phi;
   tkr.display    = @displayLevelSets; 
   tkr.get_center = @get_center;
+  tkr.compensate = @apply_g_compensation;
   
   % TESTING
-  img_in = max(img_in(:)) * rgb2gray(img_in);
-  tkr.display(img_in);
-  [dt_a mu_i mu_o g_alpha] = tkr.update_phi( img_in ); %#ok<ASGLU,NASGU>
-  tkr.display(img_in); 
-  
+  bTesting = false();
+  if bTesting && ndims(img_in)==3
+    img_in = max(img_in(:)) * rgb2gray(img_in);
+    tkr.display(img_in);
+    [dt_a mu_i mu_o g_alpha] = tkr.update_phi( img_in ); %#ok<ASGLU,NASGU>
+    tkr.display(img_in); 
+  end
   % DONE
   fprintf('done, created tkr!\n');
   
   %---------------------------------------------%
   
-  % TODO: add func to shift and initialize phi with offset
+  % TODO: add func to shift and initialize phi with offset from first frame
+  
+  % % end the todo
+  
   
   function [xyF] = get_center( )
-    [yc xc] = find( tkr.phi >=  max(tkr.phi(:)), 1);
-    xyF= [xc;yc];
+    [yc xc] = find( tkr.phi > 0 ); 
+    if isempty(xc) || isempty(yc) 
+      fprintf('warning, no phi > 0 region !?\n'); 
+      xyF = [tkr.img_size(2)/2 ; tkr.img_size(1)/2];
+      return;
+    end % strictly speaking mean() is flawed, but OK if blob target like warped circle
+    xyF= [mean(xc(:));mean(yc(:))];
+    tkr.xyF_prev = xyF;
   end
   
   function  [dt_a mu_i mu_o g_alpha] = update_phi(Img)
@@ -52,6 +65,14 @@ function  tkr = getLevelsetTracker( params )
     phi           = tkr.phi;
     CONTROL_IS_ON = tkr.CONTROL_IS_ON; 
     U             = tkr.U;
+    
+    [roi_i, roi_j]= find( phi > -dX*20 );
+    left = min(roi_j(:)); right = max(roi_j(:));
+    top  = min(roi_i(:)); bottom= max(roi_i(:));
+    Img  = Img(top:bottom,left:right);
+    phi  = phi(top:bottom,left:right);
+    U    = U(top:bottom,left:right);
+    
     [mu_i, mu_o]  = compute_means(Img,phi);
     
     kappa_phi     = 0*phi;
@@ -61,24 +82,42 @@ function  tkr = getLevelsetTracker( params )
     
     
     if CONTROL_IS_ON 
+      % f: |U-U_i| < uMin  maps to 0
+      % f: |U-U_i| >=1  maps to -G 
+      %    implementing this design choice below ...
       [U_i, U_o] = compute_means(U,phi);
       uMin   =        min( 0.1, abs(U_i-U_o) );
       xi_sqr = (U-U_i).^2; 
       f_of_U = (xi_sqr > 0.1).*( min(xi_sqr - uMin, 1 ) ).*(-g_alpha);
-      % f: |U-U_i| < uMin  maps to 0
-      % f: |U-U_i| >=1  maps to -G 
     else
       f_of_U = 0*phi;
     end
     lambda= tkr.lambda;
+    
+    
     dphi  = delta(phi) .* ( g_alpha + f_of_U + lambda * kappa_phi) ;
  
-    dt0   = 0.8;
+    dt0   = 0.6;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
-    phi    = reinitializeLevelSetFunction(phi, 2, dX, 2, 3, 2, true() );
-    tkr.phi= phi; % must force copy !?? 
+    CONSTRAIN_AREA = false(); 
+    if CONSTRAIN_AREA
+      A_now = sum( phi(:) > 0 );
+      A_ref = 2*pi*13^2; 
+      if( A_now - A_ref > 0.1*A_ref )
+        phi = phi - 2*dX;
+      elseif( A_now - A_ref < -0.1*A_ref )
+        phi = phi + dX;
+      end
+    end
+    
+    tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
+    top = max(1,top-16); bottom = min(tkr.img_size(1),bottom+16);
+    left= max(1,left-16); right = min(tkr.img_size(2),right+16);
+    redistIters = 2; % 1 or 2, negligible effect for speed
+    tkr.phi(top:bottom,left:right) = reinitializeLevelSetFunction( ... 
+                   tkr.phi(top:bottom,left:right), redistIters, dX, 2, 3, 2, true() );
     
   end
 
@@ -86,6 +125,7 @@ function  tkr = getLevelsetTracker( params )
   function displayLevelSets(img0)
     if ndims(img0) ~= 3 
       img_show = repmat(img0,[1 1 3]);
+      img_show = img_show / max(img_show(:));
     else
       img_show = img0;
     end
@@ -109,6 +149,49 @@ function  tkr = getLevelsetTracker( params )
     imshow(img_show);
     
   end
+
+  function [g_prv g_f2f] = apply_g_compensation( g_WC, g_prv, f )
+
+    
+    if isempty(g_prv) 
+      g_prv = g_WC;
+    end
+    
+    % nullify the T, unless later we trust it ...
+    g_f2f        = g_WC * (g_prv)^(-1);
+    g_f2f(1:3,4) = 0; 
+    g_prv        = g_WC; 
+    assert( (10 < f) && (1e5 > f ) );
+    
+    % apply the affine warp to tkr.phi 
+    u0 = (tkr.xyF_prev(1) - tkr.img_size(2)/2)*(1/f);
+    v0 = (tkr.xyF_prev(2) - tkr.img_size(1)/2)*(1/f);
+    uv = (g_f2f^(-1)) * [ u0(:)'; v0(:)'; ones(1,numel(v0)); ones(1,numel(v0)) ];
+    
+    x0 =  f * uv(1,:)./uv(3,:) + tkr.img_size(2)/2;
+    y0 = -f * uv(2,:)./uv(3,:) + tkr.img_size(1)/2;
+    
+    xy0            = [x0,y0]
+    pixel_shift    = norm( xy0(:) - tkr.xyF_prev)   % SAVE IT
+    
+    % apply it to phi though, really 
+    
+  end    
+    
+    
+%     u0 =  (xy0(1) - 640/2) * (1/f);
+%     v0 = -(xy0(2) - 480/2) * (1/f);
+% 
+%     uv = (g_f2f^(-1)) * [ u0(:)'; v0(:)'; ones(1,numel(v0)); ones(1,numel(v0)) ];
+% 
+%     x0 =  f * uv(1,:)./uv(3,:) + 640/2;
+%     y0 = -f * uv(2,:)./uv(3,:) + 480/2;
+% 
+%     xy0_old = xy0;
+%     xy0     = [x0,y0];
+%     img_coord_diff = norm( xy0(:) - xy0_old(:) );
+
+
 
   function  [mu_i mu_o] = compute_means( Img,phi )
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );

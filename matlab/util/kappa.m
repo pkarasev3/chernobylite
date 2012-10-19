@@ -5,6 +5,10 @@ function K = kappa(phi, p, dX)
   end
   [rr cc] = ind2sub(size(phi), p);
 
+  % *** Performance Note: *** there is much repetition of computation here! Profiler result 
+  % indicates we waste massive time here doing safe_sub2ind(), when indices p are often constant 
+  % between calls to this function. 
+  
   % shift operations
   shiftD = @(M) M(safe_sub2ind(size(phi), rr-1, cc));
   shiftU = @(M) M(safe_sub2ind(size(phi), rr+1, cc));

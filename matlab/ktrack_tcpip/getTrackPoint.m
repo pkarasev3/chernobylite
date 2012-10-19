@@ -1,6 +1,7 @@
-function [xyF ] = getTrackPoint( img, xy0, flag)
-
+function [xyF,pandora] = getTrackPoint( img, xy0, flag)
+  
   bRunTest = false;
+  pandora  = []; 
   if nargin == 0
     bRunTest = true;
     [img,xy0,flag] = createTestData();
@@ -19,9 +20,12 @@ function [xyF ] = getTrackPoint( img, xy0, flag)
   
 end
 
-function xyF = levelset_means( img, xy0 )
+function [xyF] = levelset_means( img, xy0 )
   
   global TKR;   
+  
+  img = rgb2gray(double(img) * 1.0/255.0);
+  img = 10.0 * (img - min(img(:)))/(max(img(:))-min(img(:))+1e-9);
   if isempty(TKR)
     params = struct('control_is_on',false,'Img',img);
     tkr = getLevelsetTracker( params );
@@ -30,9 +34,19 @@ function xyF = levelset_means( img, xy0 )
     tkr = TKR;
   end
   tkr.U = 0*tkr.phi; 
-  tkr.update_phi(img);
-  xyF = xy0;
-
+  
+  itrs = 3;
+  for m = 1:itrs
+    tkr.update_phi(img);
+  end
+  
+  xyF = tkr.get_center();
+  
+  sfigure(1); tkr.display(img);
+  hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
+  hold off; drawnow();
+  pause(0.05);
+  
 end
 
 function xyF = local_max_bright( img, xy0 )
@@ -65,8 +79,8 @@ end
 function [img,xy0,flag] = createTestData()
   global TKR;
   TKR = [];
-  W   = 320;
-  H   = 240;
+  W   = 2*320;
+  H   = 2*240;
   img = 5.0 * (checkerboard(10,2,2) > 0.5);
   img = imresize( img, W/size(img,2) );
   img = imfilter(img,fspecial('gaussian',[16 16],5),'replicate');
