@@ -1,12 +1,18 @@
 %
 % run this server first, then run something like ktrack client:
 %         ./simulator_client -m ../../testdata/F22mod.3ds
-import java.net.ServerSocket
-import java.io.*
-javaaddpath([pwd]);
-addpath('~/source/chernobylite/matlab/display_helpers/');
-addpath('~/source/chernobylite/matlab/util/');
 
+
+if ~exist('JavaAndPathsAreSetUp','var')
+  import java.net.ServerSocket
+  import java.io.*
+  javaaddpath([pwd]);
+  addpath('~/source/chernobylite/matlab/display_helpers/');
+  addpath('~/source/chernobylite/matlab/util/');
+  JavaAndPathsAreSetUp = true();
+else
+  disp(['java and paths are already set, continuing...']);
+end
 b_compensateMotion = true();
 b_computeHorizon   = true();
 opts = struct('output_port',5001,'number_of_retries',1000,...
@@ -18,6 +24,7 @@ number_of_retries = opts.number_of_retries; % set to -1 for infinite
 output_port       = opts.output_port;
 retry             = 0;
 
+
 if ~exist('server_socket','var')
   server_socket  = [];
   io_socket      = [];
@@ -26,6 +33,7 @@ else
   server_socket.close(); %#ok<SUSENS>
   io_socket.close(); %#ok<SUSENS>
 end
+global TKR;  TKR = [];
 
 while true
   
@@ -105,23 +113,32 @@ while true
       
       
       % Run the tracker
-      xyF = getTrackPoint( img, xy0, 'local_max_bright' );
+      localMaxBright = 'local_max_bright';
+      levelsetMeans  = 'mean_align_levelset';
+      trackerType    = levelsetMeans;
+      xyF = getTrackPoint( img, xy0, trackerType);
       fprintf('trackpoint OK!\n');
       xy0_comp   = xy0;
       xy0        = xyF;
       
       % Generate the return bytes
       message = typecast( uint16([xyF(1),xyF(2)]),'uint8');
-      sh=sfigure(1); imshow(img); hold on;
       
-      plot( [xy0_comp(1), xyF(1)], [xy0_comp(2), xyF(2)],...
-        'c-o', 'MarkerSize',10,'LineWidth',2);
-      plot( [xy0prev(1), xy0_comp(1)], [xy0prev(2), xy0_comp(2)],...
-        '-mo','MarkerSize',4, ...
-        'MarkerFaceColor','m','LineWidth',2);
+      if ~strcmp( levelsetMeans, trackerType ) 
+        sh=sfigure(1); imshow(img); hold on;
+
+        plot( [xy0_comp(1), xyF(1)], [xy0_comp(2), xyF(2)],...
+          'c-o', 'MarkerSize',10,'LineWidth',2);
+        plot( [xy0prev(1), xy0_comp(1)], [xy0prev(2), xy0_comp(2)],...
+          '-mo','MarkerSize',4, ...
+          'MarkerFaceColor','m','LineWidth',2);
+
+        hold off; 
+      end
+      sfigure(1); 
+      title([ sprintf('Received image %05d, x=%3.2f,y=%3.2f', ...
+         frameIdx,xyF(1),xyF(2)),'Server reply:' message] );
       
-      hold off; title([ sprintf('Received image %05d, x=%3.2f,y=%3.2f', ...
-        frameIdx,xyF(1),xyF(2)),'Server reply:' message] );
       
       % Return data to client via stream
       output_stream   = io_socket.getOutputStream();

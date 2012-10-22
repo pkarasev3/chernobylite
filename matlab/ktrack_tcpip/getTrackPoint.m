@@ -1,12 +1,53 @@
-function xyF = getTrackPoint( img, xy0, flag)
-
+function [xyF,pandora] = getTrackPoint( img, xy0, flag)
+  
+  bRunTest = false;
+  pandora  = []; 
+  if nargin == 0
+    bRunTest = true;
+    [img,xy0,flag] = createTestData();
+  end
+  
   xyF = xy0;
   if strcmp(flag,'local_max_bright')
     xyF = local_max_bright(img,xy0);
+  elseif strcmp(flag,'mean_align_levelset')
+    xyF = levelset_means( img, xy0 );
+  end
+  
+  if bRunTest
+    runTest(img);
   end
   
 end
 
+function [xyF] = levelset_means( img, xy0 )
+  
+  global TKR;   
+  
+  img = rgb2gray(double(img) * 1.0/255.0);
+  img = 10.0 * (img - min(img(:)))/(max(img(:))-min(img(:))+1e-9);
+  if isempty(TKR)
+    params = struct('control_is_on',false,'Img',img);
+    tkr = getLevelsetTracker( params );
+    TKR = tkr;
+  else
+    tkr = TKR;
+  end
+  tkr.U = 0*tkr.phi; 
+  
+  itrs = 3;
+  for m = 1:itrs
+    tkr.update_phi(img);
+  end
+  
+  xyF = tkr.get_center();
+  
+  sfigure(1); tkr.display(img);
+  hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
+  hold off; drawnow();
+  pause(0.05);
+  
+end
 
 function xyF = local_max_bright( img, xy0 )
   [H W c] = size(img);
@@ -33,6 +74,44 @@ function xyF = local_max_bright( img, xy0 )
   
   assert( 1-sz-1+x0 == x0-sz ); assert( 2*sz+1 -sz -1 + x0 == x0+sz );
   
-  return;
+end
+
+function [img,xy0,flag] = createTestData()
+  global TKR;
+  TKR = [];
+  W   = 2*320;
+  H   = 2*240;
+  img = 5.0 * (checkerboard(10,2,2) > 0.5);
+  img = imresize( img, W/size(img,2) );
+  img = imfilter(img,fspecial('gaussian',[16 16],5),'replicate');
+  img = (img - min( img(:) ))/(max(img(:))-min(img(:)));
+  img = repmat( img(1:H,1:W), [1 1 3]);
+  xy0 = [size(img,2)/2 ; size(img,1)/2];
+  flag= 'mean_align_levelset';
+
+end
+
+function runTest(img)
+  global TKR;
+  tkr = TKR;
+  
+  %  run a loop, updating tkr struct in-place 
+  
+  img0 = max(img(:))*rgb2gray(img); kMax = 300;
+  tic;
+  sfigure(1); clf;
+  for k = 1:kMax
+    img = img0 .* (1 + 0.05*randn(tkr.img_size(1),tkr.img_size(2)) );
+    img = circshift(img,[round(k/4),round(k/3)]);
+    tkr.U = 0*tkr.phi; 
+    tkr.update_phi(img);                           
+    xyF = tkr.get_center( );
+    tkr.display(img); title( [ num2str(k)  '  of  ' num2str(kMax) , sprintf(',  xyF= %3.3f,%3.3f',xyF(1),xyF(2) ) ] );
+    hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); hold off;
+    pause(0.05); drawnow();
+  end
+  timeTotal=toc;
+  fprintf('iterations = %03d, Hz = %4.4f \n', k, 1/(timeTotal/kMax) );
+  TKR = tkr;
 end
 
