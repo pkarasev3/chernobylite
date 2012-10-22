@@ -2,14 +2,14 @@
 % writes a simple CSV array to text, with appropriate extension .xyzuvw
 
 objFileName = 'MiG-35.obj';
-savePath    = '/home/pkarasev3/source/ktrack/testdata/'
+savePath    = '/u4/home/pkarasev3/source/ktrack/testdata/'
 saveToFile  = [savePath, objFileName, '.xyzuvw']                           %#ok<NOPTS>
 
 
 tt = linspace(0,10,5000); tt = tt(:);
 x  = 10 * cos( 2*pi*tt ) .* tanh(tt);
 y  = 10 * sin( 2*pi*tt * 0.7) .* tanh(tt);
-z  = 20 + 3 * sin(2*pi*tt * 3.5) .* tanh(tt); 
+z  = 20 + 6.5 * sin(2*pi*tt * 3.5) .* tanh(tt); 
 
 sfigure(1); plot3( x,y,z,'r.' ); hold on;
 plot3(x(end),y(end),z(end),'mx','LineWidth',4); axis equal; hold off;

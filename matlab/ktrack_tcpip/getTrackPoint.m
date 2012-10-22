@@ -35,7 +35,7 @@ function [xyF] = levelset_means( img, xy0 )
   end
   tkr.U = 0*tkr.phi; 
   
-  itrs = 3;
+  itrs = 2;
   for m = 1:itrs
     tkr.update_phi(img);
   end

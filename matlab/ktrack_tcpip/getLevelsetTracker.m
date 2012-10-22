@@ -97,7 +97,7 @@ function  tkr = getLevelsetTracker( params )
     
     dphi  = delta(phi) .* ( g_alpha + f_of_U + lambda * kappa_phi) ;
  
-    dt0   = 0.6;
+    dt0   = 0.7;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
