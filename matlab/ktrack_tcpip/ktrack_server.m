@@ -105,18 +105,17 @@ while true
       
       if opts.horizon
         [horizonU]    = getMetaHorizon( g_WC, img, f );
-        horizon_show = horizonU .* (255+rgb2gray( double(img) ));
-        sfigure(2); 
-        imagesc(horizon_show); title('horizon metadata');
+%         horizon_show = horizonU .* (255+rgb2gray( double(img) ));
+%         sfigure(2); 
+%         imagesc(horizon_show); title('horizon metadata');
         fprintf('got horizon OK!\n');
       end
-      
-      
-      % Run the tracker
+         
+      % Run tracker. Inputs should be: {img, g_WC, U, f, tracker_type}
       localMaxBright = 'local_max_bright';
       levelsetMeans  = 'mean_align_levelset';
       trackerType    = levelsetMeans;
-      xyF = getTrackPoint( img, xy0, trackerType);
+      xyF = getTrackPoint( img, xy0, horizonU, trackerType);
       fprintf('trackpoint OK!\n');
       xy0_comp   = xy0;
       xy0        = xyF;

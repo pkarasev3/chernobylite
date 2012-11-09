@@ -1,17 +1,18 @@
-function [xyF,pandora] = getTrackPoint( img, xy0, flag)
+function [xyF,pandora] = getTrackPoint( img, xy0, U, flag)
   
   bRunTest = false;
   pandora  = []; 
   if nargin == 0
     bRunTest = true;
     [img,xy0,flag] = createTestData();
+    U = zeros( size(img,1),size(img,2) );
   end
   
   xyF = xy0;
   if strcmp(flag,'local_max_bright')
     xyF = local_max_bright(img,xy0);
   elseif strcmp(flag,'mean_align_levelset')
-    xyF = levelset_means( img, xy0 );
+    xyF = levelset_means( img, xy0, U );
   end
   
   if bRunTest
@@ -20,24 +21,26 @@ function [xyF,pandora] = getTrackPoint( img, xy0, flag)
   
 end
 
-function [xyF] = levelset_means( img, xy0 )
+function [xyF] = levelset_means( img, xy0, U_in )
   
   global TKR;   
+  CONTROL_IS_ON = false(); % true(); 
   
   img = rgb2gray(double(img) * 1.0/255.0);
   img = 10.0 * (img - min(img(:)))/(max(img(:))-min(img(:))+1e-9);
-  if isempty(TKR)
-    params = struct('control_is_on',false,'Img',img);
+  if isempty(TKR)   % (a) creating tracker! 
+    params = struct('control_is_on',CONTROL_IS_ON,'Img',img);
     tkr = getLevelsetTracker( params );
     TKR = tkr;
-  else
+  else              % (b) already exists! 
     tkr = TKR;
   end
-  tkr.U = 0*tkr.phi; 
   
-  itrs = 2;
+  % Needs smarter connection ...
+  % TKR.compensate(g_WC, g_prv, f)
+  itrs = 5;
   for m = 1:itrs
-    tkr.update_phi(img);
+    tkr.update_phi(img,U_in);
   end
   
   xyF = tkr.get_center();
@@ -61,17 +64,19 @@ function xyF = local_max_bright( img, xy0 )
   subimg = imfilter(double(subimg),ones(3,3)/9,'replicate');
   
   % This should not happen now that x0,y0 are accounted for at startup
-  fprintf('getting ym, xm ... is empty subimg? %d , %d \n',numel(subimg));
-  if (0 == numel(subimg) )
-    fprintf('not OK, pushing towards iamge center!\n')
-    xyF = xy0(:) + 0.01*( [size(img,2)/2 ; size(img,1)/2] - xy0(:) ); 
-    fprintf('now OK\n');
-  else
-    [ym xm] = find( subimg == max(subimg(:)) );
-    xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];
-    fprintf('OK! \n')
-  end
-  
+%   fprintf('getting ym, xm ... is empty subimg? %d , %d \n',numel(subimg));
+%   if (0 == numel(subimg) )
+%     fprintf('not OK, pushing towards iamge center!\n')
+%     xyF = xy0(:) + 0.01*( [size(img,2)/2 ; size(img,1)/2] - xy0(:) ); 
+%     fprintf('now OK\n');
+%   else
+%     [ym xm] = find( subimg == max(subimg(:)) );
+%     xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];
+%     fprintf('OK! \n')
+%   end
+
+  [ym xm] = find( subimg == max(subimg(:)) );
+  xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];
   assert( 1-sz-1+x0 == x0-sz ); assert( 2*sz+1 -sz -1 + x0 == x0+sz );
   
 end

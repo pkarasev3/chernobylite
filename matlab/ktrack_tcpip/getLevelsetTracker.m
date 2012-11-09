@@ -22,6 +22,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 200, dX, 2, 3, 2, true() );
   tkr.U        = 0*tkr.phi;
   tkr.lambda   = 0.5 * ( max((img_in(:))) - min((img_in(:))) );
+  tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)]; 
   
   % METHODS 
   tkr.update_phi = @update_phi;
@@ -34,7 +35,7 @@ function  tkr = getLevelsetTracker( params )
   if bTesting && ndims(img_in)==3
     img_in = max(img_in(:)) * rgb2gray(img_in);
     tkr.display(img_in);
-    [dt_a mu_i mu_o g_alpha] = tkr.update_phi( img_in ); %#ok<ASGLU,NASGU>
+    [dt_a mu_i mu_o g_alpha] = tkr.update_phi( img_in, tkr.U ); %#ok<ASGLU,NASGU>
     tkr.display(img_in); 
   end
   % DONE
@@ -58,13 +59,16 @@ function  tkr = getLevelsetTracker( params )
     tkr.xyF_prev = xyF;
   end
   
-  function  [dt_a mu_i mu_o g_alpha] = update_phi(Img)
+  function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U)
     if ndims(Img) == 3
       Img = rgb2gray(Img);
     end
     phi           = tkr.phi;
     CONTROL_IS_ON = tkr.CONTROL_IS_ON; 
-    U             = tkr.U;
+    
+    if nargin < 2 
+      U = 0 * phi;
+    end
     
     [roi_i, roi_j]= find( phi > -dX*20 );
     left = min(roi_j(:)); right = max(roi_j(:));
@@ -81,36 +85,25 @@ function  tkr = getLevelsetTracker( params )
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
     
     
-    if CONTROL_IS_ON 
+    if CONTROL_IS_ON  
+      U = imfilter( (-1 + 2*(U>0)), fspecial('gaussian',[5 5],3),'replicate');
+      [U_i, U_o] = compute_means(U,phi);
       % f: |U-U_i| < uMin  maps to 0
       % f: |U-U_i| >=1  maps to -G 
-      %    implementing this design choice below ...
-      [U_i, U_o] = compute_means(U,phi);
-      uMin   =        min( 0.1, abs(U_i-U_o) );
-      xi_sqr = (U-U_i).^2; 
-      f_of_U = (xi_sqr > 0.1).*( min(xi_sqr - uMin, 1 ) ).*(-g_alpha);
+      uMin   =        0.1;
+      xi_sqr = abs(U-U_i); 
+      tkr.f_of_U = (xi_sqr > uMin).*( min(xi_sqr - uMin, 1.0 ) );
     else
-      f_of_U = 0*phi;
+      tkr.f_of_U = 0*phi;
     end
-    lambda= tkr.lambda;
+    f_of_U     = (tkr.f_of_U).*(-g_alpha);
+    lambda     = tkr.lambda;
     
     
     dphi  = delta(phi) .* ( g_alpha + f_of_U + lambda * kappa_phi) ;
- 
     dt0   = 0.7;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
-    
-    CONSTRAIN_AREA = false(); 
-    if CONSTRAIN_AREA
-      A_now = sum( phi(:) > 0 );
-      A_ref = 2*pi*13^2; 
-      if( A_now - A_ref > 0.1*A_ref )
-        phi = phi - 2*dX;
-      elseif( A_now - A_ref < -0.1*A_ref )
-        phi = phi + dX;
-      end
-    end
     
     tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
     top = max(1,top-16); bottom = min(tkr.img_size(1),bottom+16);
@@ -146,7 +139,11 @@ function  tkr = getLevelsetTracker( params )
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     
-    imshow(img_show);
+    % need good way to show tkr.f_of_U ...
+    f_of_U = tkr.f_of_U;
+    
+    imagesc(img_show);
+    
     
   end
 
@@ -171,10 +168,16 @@ function  tkr = getLevelsetTracker( params )
     x0 =  f * uv(1,:)./uv(3,:) + tkr.img_size(2)/2;
     y0 = -f * uv(2,:)./uv(3,:) + tkr.img_size(1)/2;
     
+    % apply it to phi though, really 
+    dy   = tkr.xyF_prev(2) - y0;
+    dx   = tkr.xyF_prev(1) - x0;
+    phi1 = circshift( tkr.phi, [dy, dx] );
+    tkr.phi0= tkr.phi;
+    tkr.phi = phi1;
+    
     xy0            = [x0,y0]
     pixel_shift    = norm( xy0(:) - tkr.xyF_prev)   % SAVE IT
     
-    % apply it to phi though, really 
     
   end    
     

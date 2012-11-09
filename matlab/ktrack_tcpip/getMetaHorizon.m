@@ -28,10 +28,12 @@ function [img_out] = getMetaHorizon( g_WC, img_in, f )
   img_out(z0_proj<0) = abs(z0_proj(z0_proj<0));
   
   
-  % cutoff at some max z-value
-  zmax = 1e3;
-  img_out( img_out > zmax ) = zmax;
+  
+  zmax = 300.0; % cutoff at some max z-value
+  Umax = 0.0;   % set outside range to this
+  img_out( img_out > zmax ) = Umax;
   img_out = flipdim(img_out,1);
+ % img_out = imfilter( img_out, ones(5,5)/25,'replicate');
   
   if bTesting
     sfigure(1); imagesc(img_out); title('metadata U_{horizon}');
