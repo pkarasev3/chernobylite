@@ -24,7 +24,7 @@ end
 function [xyF] = levelset_means( img, xy0, U_in )
   
   global TKR;   
-  CONTROL_IS_ON = false(); % true(); 
+  CONTROL_IS_ON =   false(); %true(); %
   
   img = rgb2gray(double(img) * 1.0/255.0);
   img = 10.0 * (img - min(img(:)))/(max(img(:))-min(img(:))+1e-9);

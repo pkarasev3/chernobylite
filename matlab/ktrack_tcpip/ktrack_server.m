@@ -65,6 +65,7 @@ while true
     gotFrame = 1;
     headerLen      = 192; % sizeof( meta_data ) in cpp
     expected_bytes = headerLen + 640 * 480 * 3; % most we can write from matlab seems to be: 250240
+    RecvTimeout    = 60.0; % seconds in timeout per frame
     
     while gotFrame
       tA = tic(); tB = toc( tA );
@@ -72,7 +73,7 @@ while true
       data_raw       = [];
       bytes_available = input_stream.available;
       fprintf(1,'Available bytes from client = %d\n', bytes_available);
-      while (RecvBytes < expected_bytes) && (tB < 5.0) %(bytes_available == 0)
+      while (RecvBytes < expected_bytes) && (tB < RecvTimeout) %(bytes_available == 0)
         bytes_available = input_stream.available;
         if bytes_available > 0
           fprintf(1,'bytes = %d, total= %d .. ', bytes_available, RecvBytes);
@@ -105,9 +106,6 @@ while true
       
       if opts.horizon
         [horizonU]    = getMetaHorizon( g_WC, img, f );
-%         horizon_show = horizonU .* (255+rgb2gray( double(img) ));
-%         sfigure(2); 
-%         imagesc(horizon_show); title('horizon metadata');
         fprintf('got horizon OK!\n');
       end
          
