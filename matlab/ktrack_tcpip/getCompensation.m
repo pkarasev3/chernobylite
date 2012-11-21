@@ -5,7 +5,7 @@ function [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f )
   end
   
   g_f2f = g_WC * (g_prv)^(-1);
-  g_f2f(1:3,4) = 0; % zero out the translation ... hm...
+  % g_f2f(1:3,4) = 0; % zero out the translation ... hm...
   g_prv = g_WC; 
   
   u0 =  (xy0(1) - 640/2) * (1/f);
