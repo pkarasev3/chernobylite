@@ -1,4 +1,4 @@
-function [img, g_WC, f] = unpack_ktrack_data( data_raw, headerLen)
+function [img, g_WC, f, true_xy, true_Nframe] = unpack_ktrack_data( data_raw, headerLen)
   dbstop if error
     meta_data  = typecast(data_raw(1:headerLen),'double');
     g_WC       = reshape(meta_data(7:7+15),[4,4])';
@@ -10,8 +10,16 @@ function [img, g_WC, f] = unpack_ktrack_data( data_raw, headerLen)
       g_WC       = g_WC * noise;
     end
     
+    
     f          = meta_data(23); assert( (1e2 < f) && (f < 1e4) ); % ensure sane f
     disp('g_WC = '); disp(g_WC);
+    
+    true_xyz1_W = [meta_data(3:5)';1];
+    true_xyz1_C = g_WC * true_xyz1_W;
+    true_xy     = [-1;1] .* (f * true_xyz1_C(1:2)/true_xyz1_C(3)) + [320; 240];
+    true_Nframe = meta_data(6); % number of frame in source stream, which runs faster than algorithm
+    
+    
     img_raw    = typecast(data_raw(headerLen+1:end),'uint8');
     B=reshape( img_raw(1:3:end),[640,480])';
     G=reshape( img_raw(2:3:end),[640,480])';

@@ -7,9 +7,18 @@ saveToFile  = [savePath, objFileName, '.xyzuvw']                           %#ok<
 
 
 tt = linspace(0,10,5000); tt = tt(:);
-x  = 10 * cos( 2*pi*tt ) .* tanh(tt);
-y  = 10 * sin( 2*pi*tt * 0.7) .* tanh(tt);
-z  = 20 + 7.0 * sin(2*pi*tt * 1.2) .* tanh(tt*3); 
+
+Scenario = 1;
+
+if Scenario == 1
+  x  = 10 + 0*tt;
+  y  = 0*tt;
+  z  = 20 + 0*tt;
+elseif Scenario == 2
+  x  = 10 * cos( 2*pi*tt ) .* tanh(tt);
+  y  = 10 * sin( 2*pi*tt * 0.7) .* tanh(tt);
+  z  = 20 + 7.0 * sin(2*pi*tt * 1.2) .* tanh(tt*3); 
+end
 
 sfigure(1); plot3( x,y,z,'r.' ); hold on;
 plot3(x(end),y(end),z(end),'mx','LineWidth',4); axis equal; hold off;

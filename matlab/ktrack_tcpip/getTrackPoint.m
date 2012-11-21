@@ -37,7 +37,7 @@ function [xyF] = levelset_means( img, xy0, U_in )
   end
   
   % Needs smarter connection ...
-  % TKR.compensate(g_WC, g_prv, f)
+  TKR.compensate( );
   itrs = 5;
   for m = 1:itrs
     tkr.update_phi(img,U_in);
@@ -48,14 +48,14 @@ function [xyF] = levelset_means( img, xy0, U_in )
   sfigure(1); tkr.display(img);
   hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
   hold off; drawnow();
-  pause(0.05);
+  pause(0.001);
   
 end
 
 function xyF = local_max_bright( img, xy0 )
   [H W c] = size(img);
   y0 = round(xy0(2)); x0 = round(xy0(1));
-  sz = 10;
+  sz = 20;
   x0 = max( x0, 2 ); x0 = min(x0,W-1);
   y0 = max( y0, 2 ); y0 = min(y0,W-1);
   xrange = x0-sz:x0+sz; xrange(xrange<1) = []; xrange(xrange>W) = [];

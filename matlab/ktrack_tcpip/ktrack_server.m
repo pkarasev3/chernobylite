@@ -65,7 +65,7 @@ while true
     gotFrame = 1;
     headerLen      = 192; % sizeof( meta_data ) in cpp
     expected_bytes = headerLen + 640 * 480 * 3; % most we can write from matlab seems to be: 250240
-    RecvTimeout    = 60.0; % seconds in timeout per frame
+    RecvTimeout    = 5.0; % seconds in timeout per frame
     
     while gotFrame
       tA = tic(); tB = toc( tA );
@@ -95,12 +95,17 @@ while true
       
       fprintf( 'expected bytes = %d, got %d\n', expected_bytes, numel(data_raw(:)) );
       % Should be done receiving from client now, read it.
-      [img, g_WC, f] = unpack_ktrack_data( data_raw, headerLen);
+      [img, g_WC, f, true_xy, true_Nframe] = unpack_ktrack_data( data_raw, headerLen);
       fprintf('unpacked OK!\n');
       
       xy0prev=xy0;
       if opts.compensation
         [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
+        if ~isempty(TKR) 
+          TKR.g_f2f = g_f2f;
+          TKR.g_WC  = g_WC;
+          TKR.f     = f;
+        end
         fprintf('compensated OK!\n');
       end
       
@@ -134,7 +139,7 @@ while true
       end
       sfigure(1); 
       title([ sprintf('Received image %05d, x=%3.2f,y=%3.2f', ...
-         frameIdx,xyF(1),xyF(2)),'Server reply:' message] );
+         frameIdx,xyF(1),xyF(2)),', Server img#: ' num2str(true_Nframe) ] );
       
       
       % Return data to client via stream

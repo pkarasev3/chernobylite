@@ -11,7 +11,8 @@ function [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f )
   u0 =  (xy0(1) - 640/2) * (1/f);
   v0 = -(xy0(2) - 480/2) * (1/f);
 
-  uv = (g_f2f^(-1)) * [ u0(:)'; v0(:)'; ones(1,numel(v0)); ones(1,numel(v0)) ];
+  z0 = 20.0;
+  uv = (g_f2f^(-1)) * [ u0(:)'; v0(:)'; z0*ones(1,numel(v0)); ones(1,numel(v0)) ];
   
   x0 =  f * uv(1,:)./uv(3,:) + 640/2;
   y0 = -f * uv(2,:)./uv(3,:) + 480/2;

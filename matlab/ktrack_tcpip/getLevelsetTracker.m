@@ -22,7 +22,9 @@ function  tkr = getLevelsetTracker( params )
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 200, dX, 2, 3, 2, true() );
   tkr.U        = 0*tkr.phi;
   tkr.lambda   = 0.5 * ( max((img_in(:))) - min((img_in(:))) );
-  tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)]; 
+  tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)];
+  tkr.g_f2f    = eye(4,4);
+  tkr.f        = 500.0;
   
   % METHODS 
   tkr.update_phi = @update_phi;
@@ -43,10 +45,7 @@ function  tkr = getLevelsetTracker( params )
   
   %---------------------------------------------%
   
-  % TODO: add func to shift and initialize phi with offset from first frame
-  
-  % % end the todo
-  
+
   
   function [xyF] = get_center( )
     [yc xc] = find( tkr.phi > 0 ); 
@@ -58,6 +57,8 @@ function  tkr = getLevelsetTracker( params )
     xyF= [mean(xc(:));mean(yc(:))];
     tkr.xyF_prev = xyF;
   end
+
+
   
   function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U)
     if ndims(Img) == 3
@@ -70,7 +71,7 @@ function  tkr = getLevelsetTracker( params )
       U = 0 * phi;
     end
     
-    [roi_i, roi_j]= find( phi > -dX*20 );
+    [roi_i, roi_j]= find( phi > -dX*10 );
     left = min(roi_j(:)); right = max(roi_j(:));
     top  = min(roi_i(:)); bottom= max(roi_i(:));
     Img  = Img(top:bottom,left:right);
@@ -101,16 +102,16 @@ function  tkr = getLevelsetTracker( params )
     
     
     dphi  = delta(phi) .* ( g_alpha + f_of_U + lambda * kappa_phi) ;
-    dt0   = 0.7;
+    dt0   = 0.9;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
     tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
-    top = max(1,top-16); bottom = min(tkr.img_size(1),bottom+16);
-    left= max(1,left-16); right = min(tkr.img_size(2),right+16);
+    top = max(1,top-8); bottom = min(tkr.img_size(1),bottom+8);
+    left= max(1,left-8); right = min(tkr.img_size(2),right+8);
     redistIters = 2; % 1 or 2, negligible effect for speed
     tkr.phi(top:bottom,left:right) = reinitializeLevelSetFunction( ... 
-                   tkr.phi(top:bottom,left:right), redistIters, dX, 2, 3, 2, true() );
+                   tkr.phi(top:bottom,left:right), 2, dX,redistIters, 2, 1, true() );
     
   end
 
@@ -147,38 +148,42 @@ function  tkr = getLevelsetTracker( params )
     
   end
 
-  function [g_prv g_f2f] = apply_g_compensation( g_WC, g_prv, f )
+  function [g_f2f] = apply_g_compensation(  )
 
-    
-    if isempty(g_prv) 
-      g_prv = g_WC;
-    end
+    global TKR; 
+    tkr.g_f2f = TKR.g_f2f;
+    tkr.f     = TKR.f;
     
     % nullify the T, unless later we trust it ...
-    g_f2f        = g_WC * (g_prv)^(-1);
-    g_f2f(1:3,4) = 0; 
-    g_prv        = g_WC; 
+    g_f2f        = tkr.g_f2f;
+    g_f2f(1:3,4) = 0;
+    f            = tkr.f;
+    if norm( g_f2f - eye(4,4),'fro') < 1e-6 
+      return; % nothing to do, frame to frame is identity
+    end
+    
     assert( (10 < f) && (1e5 > f ) );
     
     % apply the affine warp to tkr.phi 
-    u0 = (tkr.xyF_prev(1) - tkr.img_size(2)/2)*(1/f);
-    v0 = (tkr.xyF_prev(2) - tkr.img_size(1)/2)*(1/f);
-    uv = (g_f2f^(-1)) * [ u0(:)'; v0(:)'; ones(1,numel(v0)); ones(1,numel(v0)) ];
+    u0 = 0.0; %(tkr.xyF_prev(1) - tkr.img_size(2)/2)*(1/f);
+    v0 = 0.0; %(tkr.xyF_prev(2) - tkr.img_size(1)/2)*(1/f);
+    z0 = 1.0;
+    uv = (g_f2f^(-1)) * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
     
     x0 =  f * uv(1,:)./uv(3,:) + tkr.img_size(2)/2;
     y0 = -f * uv(2,:)./uv(3,:) + tkr.img_size(1)/2;
     
     % apply it to phi though, really 
-    dy   = tkr.xyF_prev(2) - y0;
-    dx   = tkr.xyF_prev(1) - x0;
-    phi1 = circshift( tkr.phi, [dy, dx] );
+    dy   = y0 - tkr.img_size(1)/2;
+    dx   = x0 - tkr.img_size(2)/2;
+    phi1 = circshift( tkr.phi, [floor(dy), floor(dx)] );
     tkr.phi0= tkr.phi;
     tkr.phi = phi1;
     
     xy0            = [x0,y0]
     pixel_shift    = norm( xy0(:) - tkr.xyF_prev)   % SAVE IT
     
-    
+    breakhere=1;
   end    
     
     
