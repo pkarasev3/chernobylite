@@ -180,10 +180,10 @@ function  tkr = getLevelsetTracker( params )
     tkr.phi0= tkr.phi;
     tkr.phi = phi1;
     
-    xy0            = [x0,y0]
-    pixel_shift    = norm( xy0(:) - tkr.xyF_prev)   % SAVE IT
+    xy0            = [x0,y0];
+    pixel_shift    = [dx,dy];  % SAVE IT!
+    fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
     
-    breakhere=1;
   end    
     
     
