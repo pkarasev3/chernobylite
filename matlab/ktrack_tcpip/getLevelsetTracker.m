@@ -26,6 +26,8 @@ function  tkr = getLevelsetTracker( params )
   tkr.g_f2f    = eye(4,4);
   tkr.f        = 500.0;
   
+  tkr.psi      = tkr.phi;
+  
   % METHODS 
   tkr.update_phi = @update_phi;
   tkr.display    = @displayLevelSets; 
@@ -126,6 +128,8 @@ function  tkr = getLevelsetTracker( params )
 
   
   function displayLevelSets(img0)
+    global TKR; % d'oh 
+    global KOpts;
     if ndims(img0) ~= 3 
       img_show = repmat(img0,[1 1 3]);
       img_show = img_show / max(img_show(:));
@@ -137,17 +141,26 @@ function  tkr = getLevelsetTracker( params )
     imgb = img_show(:,:,3);
     imgg = img_show(:,:,2);
     imgr = img_show(:,:,1);
-    
-    tkr.phi = tkr.phi;
+        
+    % draw contour in green for tracker
     imgr( abs( tkr.phi ) < phi_show_thresh ) = 0;
-
     imgb( abs( tkr.phi ) < phi_show_thresh ) = 0;
     imgg( abs( tkr.phi ) < phi_show_thresh) = (imgg( abs( tkr.phi ) < phi_show_thresh) .* ...
       abs( tkr.phi(abs(tkr.phi) < phi_show_thresh ) )/phi_show_thresh  + ...
       1.5 * (phi_show_thresh - abs( tkr.phi(abs(tkr.phi) < phi_show_thresh ) ) )/phi_show_thresh );
       
+    if KOpts.getPsiTru && isfield(TKR,'psi') % the "true" sdf for target, draw in red
+      psi     = TKR.psi; tkr.psi = psi; % force copy ...
+      imgg( abs( tkr.psi ) < phi_show_thresh ) = 0;
+      imgb( abs( tkr.psi ) < phi_show_thresh ) = 0;
+      imgr( abs( tkr.psi ) < phi_show_thresh) = (imgr( abs( tkr.psi ) < phi_show_thresh) .* ...
+          abs( tkr.psi(abs(tkr.psi) < phi_show_thresh ) )/phi_show_thresh  + ...
+          1.5 * (phi_show_thresh - abs( tkr.psi(abs(tkr.psi) < phi_show_thresh ) ) )/phi_show_thresh );
+    end
+    
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
+    
     
     % need good way to show tkr.f_of_U ...
     % f_of_U = tkr.f_of_U;
@@ -183,6 +196,7 @@ function  tkr = getLevelsetTracker( params )
     % g_f2f(1:3,4) = 0;
     f            = tkr.f;
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
+      fprintf('Not compensating, seems like g == identity\n');
       return; % nothing to do, frame to frame is identity
     end
     

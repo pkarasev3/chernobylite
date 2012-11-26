@@ -35,6 +35,14 @@ function [img, g_WC, f, true_xy, true_Nframe, Zbuffer ] = ...
     zbv_raw    = typecast(data_raw(Irgb_end+1:Zbuf_end),'single');
     Zbuffer    = reshape( zbv_raw(:), [640 480] )';
     
+    % careful, must agree with source
+      zNear = 10.0; 
+      zFar = 1000.0; 
+      
+    % get the actual depth, zbuffer is stored nonlinearly
+    z_n     = 2.0 * Zbuffer - 1.0;
+    Zbuffer = 2.0 * zNear * zFar ./ (zFar + zNear - z_n * (zFar - zNear));
+    
     bDebugZbuffer = false;
     if bDebugZbuffer
       ShowZbuff_Debug( Zbuffer );

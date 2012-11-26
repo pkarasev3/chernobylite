@@ -123,6 +123,11 @@ while true
         [horizonU]    = getMetaHorizon( g_WC, img, f );
         fprintf('got horizon OK!\n');
       end
+      
+      if opts.getPsiTru
+        psi = getTargetTrueSDF( Zbuffer, true_xy );
+        fprintf('got "true" sdf OK!\n');
+      end
          
       % Run tracker. Inputs should be: {img, g_WC, U, f, tracker_type}
       localMaxBright = 'local_max_bright';

@@ -1,13 +1,13 @@
 function opts = ktrackOpts( )
 
 %mode = 'NoCompNoU_HiC';
-%mode = 'NoCompNoU_LoC';
-mode = 'YesCompNoU';
+mode = 'NoCompNoU_LoC';
+%mode = 'YesCompNoU';
 
 if strcmp(mode,'NoCompNoU_LoC')
   b_compensateMotion = false(); %true();
   b_computeHorizon   = false();
-  C_iters             = 10; % Iffy with 10, 5 fails badly
+  C_iters             = 10; %7; % Iffy with 10, 5 fails badly
   i_maxInputFrames    = 200;
 elseif strcmp(mode,'NoCompNoU_HiC')
   b_compensateMotion = false(); %true();
@@ -29,7 +29,8 @@ end
 opts = struct('output_port',5001,'number_of_retries',1000,...
     'compensation', b_compensateMotion,...
     'horizon', b_computeHorizon,...
-    'max_input_frames',i_maxInputFrames,'contour_iters',C_iters);
+    'max_input_frames',i_maxInputFrames,'contour_iters',C_iters,...
+    'getPsiTru',false);
   
 disp(opts);
 

@@ -29,7 +29,7 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   img = rgb2gray(double(img) * 1.0/255.0);
   img = 10.0 * (img - min(img(:)))/(max(img(:))-min(img(:))+1e-9);
-  if isempty(TKR)   % (a) creating tracker! 
+  if ~isfield(TKR,'compensate')   % (a) creating tracker! 
     params = struct('control_is_on',CONTROL_IS_ON,'Img',img);
     tkr = getLevelsetTracker( params );
     TKR = tkr;
@@ -38,8 +38,12 @@ function [xyF] = levelset_means( img, xy0, U_in )
   end
   
   if KOpts.compensation 
-    TKR.compensate( );
+    tkr.compensate( );
   end
+  
+  % Force a copy to happen of the ground truth
+  tkr.psi(:) = TKR.psi(:); % ??
+  
   itrs = KOpts.contour_iters;
   for m = 1:itrs
     tkr.update_phi(img,U_in);
@@ -47,9 +51,12 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   xyF = tkr.get_center();
   
-  sfigure(1); tkr.display(img);
-  hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
-  hold off; drawnow();
+  sfigure(1); tkr.display(img); bDrawCentroid = false;
+  if bDrawCentroid
+    hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
+    hold off; 
+  end
+  drawnow();
   pause(0.001);
   
 end
@@ -65,17 +72,7 @@ function xyF = local_max_bright( img, xy0 )
   subimg = rgb2gray( img( yrange, xrange,:) );
   subimg = imfilter(double(subimg),ones(3,3)/9,'replicate');
   
-  % This should not happen now that x0,y0 are accounted for at startup
-%   fprintf('getting ym, xm ... is empty subimg? %d , %d \n',numel(subimg));
-%   if (0 == numel(subimg) )
-%     fprintf('not OK, pushing towards iamge center!\n')
-%     xyF = xy0(:) + 0.01*( [size(img,2)/2 ; size(img,1)/2] - xy0(:) ); 
-%     fprintf('now OK\n');
-%   else
-%     [ym xm] = find( subimg == max(subimg(:)) );
-%     xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];
-%     fprintf('OK! \n')
-%   end
+
 
   [ym xm] = find( subimg == max(subimg(:)) );
   xyF     = [mean(xm(:))-sz-1+x0; mean(ym(:))-sz-1+y0];

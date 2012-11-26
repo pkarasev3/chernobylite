@@ -21,10 +21,9 @@ y0 = -f * uv(2,:)./uv(3,:) + 480/2;
 
 xy0     = [x0,y0];
 
-if ~isempty(TKR)
-  TKR.g_f2f = g_f2f;
-  TKR.g_WC  = g_WC;
-  TKR.f     = f;
-end
+% store it for later use
+TKR.g_f2f = g_f2f;
+TKR.g_WC  = g_WC;
+TKR.f     = f;
 
 end
