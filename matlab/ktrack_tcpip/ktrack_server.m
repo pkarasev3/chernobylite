@@ -13,12 +13,14 @@ if ~exist('JavaAndPathsAreSetUp','var')
 else
   disp(['java and paths are already set, continuing...']);
 end
-b_compensateMotion = true();
-b_computeHorizon   = true();
-opts = struct('output_port',5001,'number_of_retries',1000,...
-                    'compensation', b_compensateMotion,...
-                    'horizon', b_computeHorizon);
-disp(opts);
+
+opts = ktrackOpts(); % Internal options set here 
+global KOpts;
+KOpts = opts;
+
+results           = [];
+results.true_xy   = [];
+results.estm_xy   = [];
 
 number_of_retries = opts.number_of_retries; % set to -1 for infinite
 output_port       = opts.output_port;
@@ -34,6 +36,7 @@ else
   io_socket.close(); %#ok<SUSENS>
 end
 global TKR;  TKR = [];
+
 
 while true
   
@@ -64,7 +67,8 @@ while true
     xy0      = [320,240]; % initial track-point
     gotFrame = 1;
     headerLen      = 192; % sizeof( meta_data ) in cpp
-    expected_bytes = headerLen + 640 * 480 * 3; % most we can write from matlab seems to be: 250240
+    expected_bytes = headerLen + 640 * 480 * 3 + ... % header, rgb (8uc3),
+                                 640 * 480 * 4;      %   and zbuffer (float32)
     RecvTimeout    = 5.0; % seconds in timeout per frame
     
     while gotFrame
@@ -93,19 +97,25 @@ while true
         continue;
       end
       
-      fprintf( 'expected bytes = %d, got %d\n', expected_bytes, numel(data_raw(:)) );
       % Should be done receiving from client now, read it.
-      [img, g_WC, f, true_xy, true_Nframe] = unpack_ktrack_data( data_raw, headerLen);
+      fprintf( 'expected bytes = %d, got %d\n', expected_bytes, numel(data_raw(:)) );
+      [img, g_WC, f, ...
+           true_xy,true_Nframe, Zbuffer] = unpack_ktrack_data( data_raw, headerLen);
       fprintf('unpacked OK!\n');
+      
+      if true_Nframe > opts.max_input_frames
+        fprintf('finished with requested number of inputs frames!\n');
+        gotFrame = false();
+        continue;
+      end
+      
+      % Record true xy
+      results.true_xy = [results.true_xy; true_xy(:)'];
+      
       
       xy0prev=xy0;
       if opts.compensation
         [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
-        if ~isempty(TKR) 
-          TKR.g_f2f = g_f2f;
-          TKR.g_WC  = g_WC;
-          TKR.f     = f;
-        end
         fprintf('compensated OK!\n');
       end
       
@@ -122,6 +132,9 @@ while true
       fprintf('trackpoint OK!\n');
       xy0_comp   = xy0;
       xy0        = xyF;
+      
+      % record the tracker result
+      results.estm_xy = [results.estm_xy; xyF(:)'];
       
       % Generate the return bytes
       message = typecast( uint16([xyF(1),xyF(2)]),'uint8');
@@ -147,7 +160,7 @@ while true
       d_output_stream = DataOutputStream(output_stream);
       
       % output the data over the DataOutputStream
-      fprintf(1, 'Writing %d bytes\n', length(message))
+      fprintf(1, 'Writing %d bytes\n', length(message));
       d_output_stream.write( uint8(message) );
       d_output_stream.flush;
       pause(0.01);

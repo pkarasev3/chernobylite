@@ -76,6 +76,8 @@ function  tkr = getLevelsetTracker( params )
     top  = min(roi_i(:)); bottom= max(roi_i(:));
     Img  = Img(top:bottom,left:right);
     phi  = phi(top:bottom,left:right);
+    
+  
     U    = U(top:bottom,left:right);
     
     [mu_i, mu_o]  = compute_means(Img,phi);
@@ -106,6 +108,10 @@ function  tkr = getLevelsetTracker( params )
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
+    phiArea = trapz(trapz(Heavi( phi ) ) );
+    minArea = 13*13;
+    phi     = phi + (phiArea < minArea)*(1.0);
+    
     tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
     top = max(1,top-8); bottom = min(tkr.img_size(1),bottom+8);
     left= max(1,left-8); right = min(tkr.img_size(2),right+8);
@@ -113,6 +119,9 @@ function  tkr = getLevelsetTracker( params )
     tkr.phi(top:bottom,left:right) = reinitializeLevelSetFunction( ... 
                    tkr.phi(top:bottom,left:right), 2, dX,redistIters, 2, 1, true() );
     
+    
+                     
+                 
   end
 
   
@@ -141,9 +150,9 @@ function  tkr = getLevelsetTracker( params )
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     
     % need good way to show tkr.f_of_U ...
-    f_of_U = tkr.f_of_U;
+    % f_of_U = tkr.f_of_U;
     
-    imagesc(img_show);
+    imshow(img_show);
     
     
   end
@@ -189,7 +198,7 @@ function  tkr = getLevelsetTracker( params )
     
     xx1  = reshape(u1,size(xx));
     yy1  = reshape(v1,size(yy));
-    phi1 = interp2(xx,yy,tkr.phi, xx1, yy1,'linear',-500); 
+    phi1 = interp2(xx,yy,tkr.phi, xx1, yy1,'*linear',-100); 
     dx   = f*( xx1(m/2,n/2)-xx(m/2,n/2) );
     dy   = f*( yy1(m/2,n/2)-yy(m/2,n/2) );
  
@@ -197,7 +206,7 @@ function  tkr = getLevelsetTracker( params )
     tkr.phi = phi1;
     
     %xy0            = [x0,y0];
-    pixel_shift    = [dx,dy];  % SAVE IT!
+    %pixel_shift    = [dx,dy];  % SAVE IT!
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
     
   end    

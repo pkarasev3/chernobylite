@@ -24,6 +24,7 @@ end
 function [xyF] = levelset_means( img, xy0, U_in )
   
   global TKR;   
+  global KOpts;
   CONTROL_IS_ON =   false(); %true(); %
   
   img = rgb2gray(double(img) * 1.0/255.0);
@@ -36,9 +37,10 @@ function [xyF] = levelset_means( img, xy0, U_in )
     tkr = TKR;
   end
   
-  % Needs smarter connection ...
-  TKR.compensate( );
-  itrs = 5;
+  if KOpts.compensation 
+    TKR.compensate( );
+  end
+  itrs = KOpts.contour_iters;
   for m = 1:itrs
     tkr.update_phi(img,U_in);
   end

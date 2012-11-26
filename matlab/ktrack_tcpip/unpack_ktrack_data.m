@@ -1,4 +1,5 @@
-function [img, g_WC, f, true_xy, true_Nframe] = unpack_ktrack_data( data_raw, headerLen)
+function [img, g_WC, f, true_xy, true_Nframe, Zbuffer ] = ...
+                       unpack_ktrack_data( data_raw, headerLen)
   dbstop if error
     meta_data  = typecast(data_raw(1:headerLen),'double');
     g_WC       = reshape(meta_data(7:7+15),[4,4])';
@@ -19,8 +20,10 @@ function [img, g_WC, f, true_xy, true_Nframe] = unpack_ktrack_data( data_raw, he
     true_xy     = [-1;1] .* (f * true_xyz1_C(1:2)/true_xyz1_C(3)) + [320; 240];
     true_Nframe = meta_data(6); % number of frame in source stream, which runs faster than algorithm
     
+    Irgb_end    = headerLen + 640*480*3;
+    Zbuf_end    = headerLen + 640*480*3 + 640*480*4 ;
     
-    img_raw    = typecast(data_raw(headerLen+1:end),'uint8');
+    img_raw    = typecast(data_raw(headerLen+1:Irgb_end),'uint8');
     B=reshape( img_raw(1:3:end),[640,480])';
     G=reshape( img_raw(2:3:end),[640,480])';
     R=reshape( img_raw(3:3:end),[640,480])';
@@ -28,4 +31,22 @@ function [img, g_WC, f, true_xy, true_Nframe] = unpack_ktrack_data( data_raw, he
     img(:,:,1)=R; 
     img(:,:,2)=G; 
     img(:,:,3)=B;
+    
+    zbv_raw    = typecast(data_raw(Irgb_end+1:Zbuf_end),'single');
+    Zbuffer    = reshape( zbv_raw(:), [640 480] )';
+    
+    bDebugZbuffer = false;
+    if bDebugZbuffer
+      ShowZbuff_Debug( Zbuffer );
+    end
+    
+end
+
+function ShowZbuff_Debug( zb ) 
+  sfigure(2); imagesc(zb); title('zbuffer input.');
+  zmin = min(zb(:)); 
+  zmax = max(zb(:));
+  fprintf(' min = %4.4f, max = %4.4f\n', zmin, zmax);
+  drawnow;
+
 end
