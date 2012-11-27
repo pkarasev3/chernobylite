@@ -1,8 +1,8 @@
 function opts = getKtrackOpts( )
 
-%mode = 'NoCompNoU_HiC';
+mode = 'NoCompNoU_HiC';
 %mode = 'NoCompNoU_LoC';
-mode = 'YesCompNoU';
+%mode = 'YesCompNoU';
 
 if strcmp(mode,'NoCompNoU_LoC')
   b_compensateMotion = false(); %true();
