@@ -33,6 +33,8 @@ function psi = getTargetTrueSDF( Zbuffer, target_xy )
   end
   
   TKR.psi = psi;
+  TKR.xroi=xrange;
+  TKR.yroi=yrange;
   
 end
 

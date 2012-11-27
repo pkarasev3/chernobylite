@@ -19,14 +19,12 @@ global KOpts;
 KOpts = opts;
 
 results           = [];
-results.true_xy   = [];
-results.estm_xy   = [];
 
 number_of_retries = opts.number_of_retries; % set to -1 for infinite
 output_port       = opts.output_port;
 retry             = 0;
 
-
+!killall -9 simulator_client 
 if ~exist('server_socket','var')
   server_socket  = [];
   io_socket      = [];
@@ -97,21 +95,20 @@ while true
         continue;
       end
       
-      % Should be done receiving from client now, read it.
       fprintf( 'expected bytes = %d, got %d\n', expected_bytes, numel(data_raw(:)) );
+      
+      % Unpack the stream of bytes, "custom protocol" 
       [img, g_WC, f, ...
            true_xy,true_Nframe, Zbuffer] = unpack_ktrack_data( data_raw, headerLen);
       fprintf('unpacked OK!\n');
       
       if true_Nframe > opts.max_input_frames
-        fprintf('finished with requested number of inputs frames!\n');
-        gotFrame = false();
+        fprintf('finished requested # of input frames!\n');
+        fprintf('attempting to save results as %s\n', ... 
+                                          KOpts.result_filename);
+        save(opts.result_filename,'results'); gotFrame = false();
         continue;
       end
-      
-      % Record true xy
-      results.true_xy = [results.true_xy; true_xy(:)'];
-      
       
       xy0prev=xy0;
       if opts.compensation
@@ -135,26 +132,18 @@ while true
       trackerType    = levelsetMeans;
       xyF = getTrackPoint( img, xy0, horizonU, trackerType);
       fprintf('trackpoint OK!\n');
-      xy0_comp   = xy0;
       xy0        = xyF;
-      
-      % record the tracker result
-      results.estm_xy = [results.estm_xy; xyF(:)'];
+     
+      % Store into results for later evaluation
+      TKR.true_xy     = true_xy;
+      TKR.true_Nframe = true_Nframe;
+      TKR.Zbuffer     = Zbuffer;
+      TKR.xyF         = xyF;
+      results         = push_to_results( results );
       
       % Generate the return bytes
       message = typecast( uint16([xyF(1),xyF(2)]),'uint8');
-      
-      if ~strcmp( levelsetMeans, trackerType ) 
-        sh=sfigure(1); imshow(img); hold on;
-
-        plot( [xy0_comp(1), xyF(1)], [xy0_comp(2), xyF(2)],...
-          'c-o', 'MarkerSize',10,'LineWidth',2);
-        plot( [xy0prev(1), xy0_comp(1)], [xy0prev(2), xy0_comp(2)],...
-          '-mo','MarkerSize',4, ...
-          'MarkerFaceColor','m','LineWidth',2);
-
-        hold off; 
-      end
+     
       sfigure(1); 
       title([ sprintf('Received image %05d, x=%3.2f,y=%3.2f', ...
          frameIdx,xyF(1),xyF(2)),', Server img#: ' num2str(true_Nframe) ] );
@@ -183,7 +172,9 @@ while true
     s = lasterror;               %#ok<LERR>
     bInterestingError = isempty(strfind(s.message,'java.net.SocketTimeoutException: Accept timed out'));
     if bInterestingError
-      disp(['last error was: ']); disp(s.stack); disp(s.message);
+      disp(['last error was: ']); 
+      fprintf('file: %s, line: %s, name: %s\n',s.stack.file,num2str(s.stack.line),s.stack.name);
+      %s.message
     end
     if ~isempty(server_socket)
       server_socket.close
@@ -197,6 +188,9 @@ while true
     pause(0.01);
   end
 end
+
+
+
 %               hold on;
 %img = silent_rectangle([xyF(2),xyF(1)],20,img,[255 50 100]);
 %img = silent_rectangle([xyF(2),xyF(1)],18,img,[ 0 0 0]);
@@ -207,3 +201,15 @@ end
 %       plot( [xy0_comp(1)], [xy0_comp(2)],'s','MarkerEdgeColor','y',...
 %                            'MarkerSize',8,'LineWidth',2,'MarkerFaceColor',[0 0 0]);
 %
+% 
+%  if ~strcmp( levelsetMeans, trackerType ) 
+%         sh=sfigure(1); imshow(img); hold on;
+% 
+%         plot( [xy0_comp(1), xyF(1)], [xy0_comp(2), xyF(2)],...
+%           'c-o', 'MarkerSize',10,'LineWidth',2);
+%         plot( [xy0prev(1), xy0_comp(1)], [xy0prev(2), xy0_comp(2)],...
+%           '-mo','MarkerSize',4, ...
+%           'MarkerFaceColor','m','LineWidth',2);
+% 
+%         hold off; 
+%       end

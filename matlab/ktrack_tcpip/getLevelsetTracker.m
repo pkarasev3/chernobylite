@@ -17,6 +17,9 @@ function  tkr = getLevelsetTracker( params )
   tkr.xx       = xx;
   tkr.yy       = yy;
   
+  tkr.img0     = params.Img;
+  tkr.img_show = zeros(m,n,3);
+  
   [epsilon, dX]= get_params();
   tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 2,dX, 2, 2, true() );
@@ -28,7 +31,10 @@ function  tkr = getLevelsetTracker( params )
   
   tkr.psi      = tkr.phi;
   
-  % METHODS 
+  % METHODS
+  tkr.Heavi      = @Heavi;
+  tkr.delta      = @delta;
+  tkr.get_means  = @compute_means;
   tkr.update_phi = @update_phi;
   tkr.display    = @displayLevelSets; 
   tkr.get_center = @get_center;
@@ -141,13 +147,15 @@ function  tkr = getLevelsetTracker( params )
     imgb = img_show(:,:,3);
     imgg = img_show(:,:,2);
     imgr = img_show(:,:,1);
-        
+    
+    phi = tkr.phi;
+    
     % draw contour in green for tracker
-    imgr( abs( tkr.phi ) < phi_show_thresh ) = 0;
-    imgb( abs( tkr.phi ) < phi_show_thresh ) = 0;
-    imgg( abs( tkr.phi ) < phi_show_thresh) = (imgg( abs( tkr.phi ) < phi_show_thresh) .* ...
-      abs( tkr.phi(abs(tkr.phi) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1.5 * (phi_show_thresh - abs( tkr.phi(abs(tkr.phi) < phi_show_thresh ) ) )/phi_show_thresh );
+    imgr( abs( phi ) < phi_show_thresh ) = 0;
+    imgb( abs( phi ) < phi_show_thresh ) = 0;
+    imgg( abs( phi ) < phi_show_thresh) = (imgg( abs( phi ) < phi_show_thresh) .* ...
+      abs( phi(abs(phi) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh );
       
     if KOpts.getPsiTru && isfield(TKR,'psi') % the "true" sdf for target, draw in red
       psi     = TKR.psi; tkr.psi = psi; % force copy ...
@@ -161,12 +169,14 @@ function  tkr = getLevelsetTracker( params )
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
     
-    
     % need good way to show tkr.f_of_U ...
     % f_of_U = tkr.f_of_U;
     
-    imshow(img_show);
+    %imshow(img_show);
     
+    TKR.img0(:)     = img0(:);
+    TKR.img_show(:) = img_show(:);
+    TKR.phi(:)      = phi(:);
     
   end
 
@@ -175,6 +185,7 @@ function  tkr = getLevelsetTracker( params )
     global TKR; 
     tkr.g_f2f = TKR.g_f2f;
     tkr.f     = TKR.f;
+    fprintf('| got f = %4.4f |, ',tkr.f);
     
     % do affine warp more carefully ... 
     m            = tkr.img_size(1);

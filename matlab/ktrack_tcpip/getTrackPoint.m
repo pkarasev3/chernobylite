@@ -41,8 +41,8 @@ function [xyF] = levelset_means( img, xy0, U_in )
     tkr.compensate( );
   end
   
-  % Force a copy to happen of the ground truth
-  tkr.psi(:) = TKR.psi(:); % ??
+  % Force a copy to happen, hackish
+  tkr.psi(:) = TKR.psi(:);
   
   itrs = KOpts.contour_iters;
   for m = 1:itrs
@@ -51,14 +51,17 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   xyF = tkr.get_center();
   
-  sfigure(1); tkr.display(img); bDrawCentroid = false;
+  sfigure(1); 
+  tkr.display(img); % Careful, this responsible stuff moving tkr => TKR 
+  
+  bDrawCentroid = false;
   if bDrawCentroid
     hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
     hold off; 
   end
   drawnow();
+ 
   pause(0.001);
-  
 end
 
 function xyF = local_max_bright( img, xy0 )
