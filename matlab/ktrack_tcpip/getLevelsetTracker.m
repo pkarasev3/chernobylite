@@ -149,14 +149,7 @@ function  tkr = getLevelsetTracker( params )
     imgr = img_show(:,:,1);
     
     phi = tkr.phi;
-    
-    % draw contour in green for tracker
-    imgr( abs( phi ) < phi_show_thresh ) = 0;
-    imgb( abs( phi ) < phi_show_thresh ) = 0;
-    imgg( abs( phi ) < phi_show_thresh) = (imgg( abs( phi ) < phi_show_thresh) .* ...
-      abs( phi(abs(phi) < phi_show_thresh ) )/phi_show_thresh  + ...
-      1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh );
-      
+ 
     if KOpts.getPsiTru && isfield(TKR,'psi') % the "true" sdf for target, draw in red
       psi     = TKR.psi; tkr.psi = psi; % force copy ...
       imgg( abs( tkr.psi ) < phi_show_thresh ) = 0;
@@ -165,6 +158,15 @@ function  tkr = getLevelsetTracker( params )
           abs( tkr.psi(abs(tkr.psi) < phi_show_thresh ) )/phi_show_thresh  + ...
           1.5 * (phi_show_thresh - abs( tkr.psi(abs(tkr.psi) < phi_show_thresh ) ) )/phi_show_thresh );
     end
+    
+    % draw contour in green for tracker
+    imgr( abs( phi ) < phi_show_thresh ) = 0;
+    imgb( abs( phi ) < phi_show_thresh ) = 0;
+    imgg( abs( phi ) < phi_show_thresh) = (imgg( abs( phi ) < phi_show_thresh) .* ...
+      abs( phi(abs(phi) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh );
+      
+ 
     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;

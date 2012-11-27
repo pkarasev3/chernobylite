@@ -14,7 +14,7 @@ else
   disp(['java and paths are already set, continuing...']);
 end
 
-opts = ktrackOpts(); % Internal options set here 
+opts = getKtrackOpts(); % Internal options set here 
 global KOpts;
 KOpts = opts;
 
