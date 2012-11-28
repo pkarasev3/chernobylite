@@ -51,7 +51,6 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   xyF = tkr.get_center();
   
-  sfigure(1); 
   tkr.display(img); % Careful, this responsible stuff moving tkr => TKR 
   
   bDrawCentroid = false;

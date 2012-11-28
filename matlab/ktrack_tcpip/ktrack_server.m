@@ -178,8 +178,11 @@ while true
     s = lasterror;               %#ok<LERR>
     bInterestingError = isempty(strfind(s.message,'java.net.SocketTimeoutException: Accept timed out'));
     if bInterestingError
+      s_ = s;
       disp(['last error was: ']); 
-      fprintf('file: %s, line: %s, name: %s\n',s.stack.file,num2str(s.stack.line),s.stack.name);
+      s.stack.file
+        s.stack.line
+        s.stack.name
       %s.message
     end
     if ~isempty(server_socket)

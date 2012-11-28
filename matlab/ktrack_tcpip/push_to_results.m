@@ -35,8 +35,8 @@ function results = push_to_results( results )
   results.D_ls_err  = [results.D_ls_err; D_err];
   results.nFrame_in = [results.nFrame_in; Nframe];
   
-  if KOpts.saveImages
-    if mod(iter,5)==0
+  if 0 < KOpts.showImages
+    if mod(iter,KOpts.showImages)==0
       sfigure(1); imshow( TKR.img_show ); 
     end
     %sfigure(2); imagesc( [phi, psi] ); 

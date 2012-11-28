@@ -1,7 +1,10 @@
-function K = kappa(phi, p, dX)
+function [K dx dy dx2 dy2] = kappa(phi, p, dX)
   
   if( nargin < 3 )
     dX = 1.0;
+    if nargin < 2
+      p = 1:numel(phi);
+    end
   end
   [rr cc] = ind2sub(size(phi), p);
 
@@ -36,6 +39,13 @@ function K = kappa(phi, p, dX)
   
   % Note: Poincare in L1, for phi with compact support, says:
   % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )
+  
+  if nargin < 2
+    dx=reshape(dx,size(phi));
+    dy=reshape(dy,size(phi));
+    dx2=reshape(dx2,size(phi));
+    dy2=reshape(dy2,size(phi));
+  end
   
 end
 

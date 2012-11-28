@@ -27,7 +27,7 @@ elseif Scenario == 3
   % Moving around, stays above horizonish
   x  = 10 * cos(0.9 * pi*tt      ) .* tanh(tt);
   y  = 10 * sin(0.9 * pi*tt * 0.7) .* tanh(tt);
-  z  = 20 + 4.0 * sin(2*pi*tt * 1.2) .* tanh(tt*3); 
+  z  = 20 + 4.0 * sin(2*pi*tt * 0.6) .* tanh(tt*3); 
 end
 
 sfigure(1); plot3( x,y,z,'r.' ); hold on;

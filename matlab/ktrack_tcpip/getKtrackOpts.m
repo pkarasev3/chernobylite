@@ -5,6 +5,9 @@ function opts = getKtrackOpts( )
 %mode = 'YesCompNoU';
 mode = 'YesCompNoU_EqC';
 
+saveRate = 0;
+showRate = 5;
+
 if strcmp(mode,'NoCompNoU_LoC')
   b_compensateMotion = false(); %true();
   b_computeHorizon   = false();
@@ -23,8 +26,9 @@ elseif strcmp(mode,'YesCompNoU')
 elseif strcmp(mode,'YesCompNoU_EqC')
   b_compensateMotion = true();
   b_computeHorizon   = false();
-  i_maxInputFrames   = 200;
+  i_maxInputFrames   = 1000;
   C_iters            = 10; %same count as "lo"
+  showRate           = 1;
 end
 
 res_fname           = [mode '_' num2str(C_iters) '_results.mat'];
@@ -39,7 +43,8 @@ opts = struct('output_port',5001,'number_of_retries',10,...
     'horizon', b_computeHorizon,...
     'max_input_frames',i_maxInputFrames,'contour_iters',C_iters,...
     'getPsiTru',true,...
-    'saveImages',true,...
+    'saveImages',saveRate,...
+    'showImages',showRate,...
     'result_filename',res_fname);
   
 disp(opts);

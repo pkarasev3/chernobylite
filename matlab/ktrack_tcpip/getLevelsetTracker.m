@@ -30,6 +30,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.f        = 500.0;
   
   tkr.psi      = tkr.phi;
+  tkr.phi0     = tkr.phi;
   
   % METHODS
   tkr.Heavi      = @Heavi;
@@ -40,7 +41,12 @@ function  tkr = getLevelsetTracker( params )
   tkr.get_center = @get_center;
   tkr.compensate = @apply_g_compensation;
   
-  % TESTING
+  bTestShifter = true;
+  if bTestShifter
+    test_shifter(tkr.phi);
+  end
+  
+  % TESTING 1
   bTesting = false();
   if bTesting && ndims(img_in)==3
     img_in = max(img_in(:)) * rgb2gray(img_in);
@@ -90,13 +96,12 @@ function  tkr = getLevelsetTracker( params )
     
     [mu_i, mu_o]  = compute_means(Img,phi);
     
-    kappa_phi     = 0*phi;
-    kappa_phi(1:numel(phi)) = kappa(phi,1:numel(phi));
-    
+    kappa_phi     = 0*phi; dx=0*phi; dy=0*phi;dx2=0*dx;dy2=0*dy;
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
     
-    
-    if CONTROL_IS_ON  
+    kappa_phi(1:numel(phi))  = kappa(phi,1:numel(phi));
+   
+  if CONTROL_IS_ON  
       U = imfilter( (-1 + 2*(U>0)), fspecial('gaussian',[5 5],3),'replicate');
       [U_i, U_o] = compute_means(U,phi);
       % f: |U-U_i| < uMin  maps to 0
@@ -126,9 +131,6 @@ function  tkr = getLevelsetTracker( params )
     redistIters = 2; % 1 or 2, negligible effect for speed
     tkr.phi(top:bottom,left:right) = reinitializeLevelSetFunction( ... 
                    tkr.phi(top:bottom,left:right), 2, dX,redistIters, 2, 1, true() );
-    
-    
-                     
                  
   end
 
@@ -149,9 +151,11 @@ function  tkr = getLevelsetTracker( params )
     imgr = img_show(:,:,1);
     
     phi = tkr.phi;
- 
+  
     if KOpts.getPsiTru && isfield(TKR,'psi') % the "true" sdf for target, draw in red
-      psi     = TKR.psi; tkr.psi = psi; % force copy ...
+      %psi     = TKR.psi; 
+      psi     = TKR.phi0;
+      tkr.psi = psi; % force copy ...
       imgg( abs( tkr.psi ) < phi_show_thresh ) = 0;
       imgb( abs( tkr.psi ) < phi_show_thresh ) = 0;
       imgr( abs( tkr.psi ) < phi_show_thresh) = (imgr( abs( tkr.psi ) < phi_show_thresh) .* ...
@@ -226,18 +230,41 @@ function  tkr = getLevelsetTracker( params )
     xx1  = reshape(u1,size(xx));
     yy1  = reshape(v1,size(yy));
     phi1 = interp2(xx,yy,tkr.phi, xx1, yy1,'*linear',-100); 
-    dx   = f*( xx1(m/2,n/2)-xx(m/2,n/2) );
-    dy   = f*( yy1(m/2,n/2)-yy(m/2,n/2) );
- 
+    dx   = f*( xx1(m/2,n/2)-xx(m/2,n/2) )/z0;
+    dy   = f*( yy1(m/2,n/2)-yy(m/2,n/2) )/z0;
+    
     tkr.phi0= tkr.phi;
     tkr.phi = phi1;
+    
+    % Initialization for next ls iters
+    TKR.phi0= tkr.phi;
     
     %xy0            = [x0,y0];
     %pixel_shift    = [dx,dy];  % SAVE IT!
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
-    
   end    
 
+  function test_shifter(phi)
+    
+    for itr = 1:1000
+      fx = 1; fy = 1; 
+      [K dx dy dx2 dy2] = kappa( phi );
+      
+      Nx = dx ./ sqrt(dx.^2+dy.^2+1e-9); 
+      Ny = dy ./ sqrt(dx.^2+dy.^2+1e-9);
+
+      fdotN = -( fx * Nx + fx * Ny ) ;
+
+      dphi = fdotN .* delta(phi);
+      dt   = 0.5/max(abs(dphi(:)));
+      phi  = phi+dt*dphi;
+      phi = reinitializeLevelSetFunction( phi, 2, 1,5, 2, 1, true() );
+      sfigure(1); imagesc( 1.0*phi.*(abs(phi>0))); 
+      phi(240,320)
+      drawnow;
+    end
+    
+  end
 
 
   function  [mu_i mu_o] = compute_means( Img,phi )
