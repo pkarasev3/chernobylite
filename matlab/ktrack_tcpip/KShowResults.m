@@ -1,4 +1,8 @@
-                                                                              %#ok<*NOPTS>
+addpath('~/source/chernobylite/matlab/display_helpers/');
+addpath('~/source/chernobylite/matlab/util/');
+addpath('~/source/chernobylite/matlab/display_helpers/');
+addpath('~/source/chernobylite/matlab/LSMlibPK/');                                                                            %#ok<*NOPTS>
+addpath('~/source/matlab2tikz_0.2.2/src');
 
 resnames = {'Final_Seq1/NoCompNoU_LoC_10_results.mat',...
             'Final_Seq2/NoCompNoU_LoC_10_results.mat',...
@@ -47,8 +51,12 @@ for k =1:numel(resnames)
 
 end
 
-sfigure(2);
-axis([0,numel(resnames)+1,0,500]); grid on;
+sfigure(2); ylabel('\psi-\phi error');
+axis([0,numel(resnames)+1,0,500]); grid on; drawnow;
+matlab2tikz('ktrack_boxplot_1.tikz.tex','width','13cm','height','5cm');
 
-sfigure(3);
-axis([0,numel(resnames)+1,0,0.03]); grid on;
+sfigure(3); ylabel('frame-to-frame angular displacement');
+axis([0,numel(resnames)+1,0,0.03]); grid on; drawnow; 
+matlab2tikz('ktrack_boxplot_2.tikz.tex','width','13cm','height','5cm');
+
+!cp -v ./*.tex   ~/source/visioncontrol/thesis-pk/figs/
