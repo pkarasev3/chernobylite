@@ -7,12 +7,14 @@ if ~exist('JavaAndPathsAreSetUp','var')
   import java.net.ServerSocket
   import java.io.*
   javaaddpath([pwd]);
-  addpath('~/source/chernobylite/matlab/display_helpers/');
-  addpath('~/source/chernobylite/matlab/util/');
   JavaAndPathsAreSetUp = true();
 else
   disp(['java and paths are already set, continuing...']);
 end
+addpath('~/source/chernobylite/matlab/display_helpers/');
+addpath('~/source/chernobylite/matlab/util/');
+addpath('~/source/chernobylite/matlab/display_helpers/');
+addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
 opts = getKtrackOpts(); % Internal options set here 
 global KOpts;
@@ -107,11 +109,10 @@ while true
         fprintf('attempting to save results as %s\n', ... 
                                           KOpts.result_filename);
         save(opts.result_filename,'results'); gotFrame = false();
-        continue;
       end
       
       xy0prev=xy0;
-      if opts.compensation
+      if true % Doh, need to record to TKR here.. % if opts.compensation
         [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
         fprintf('compensated OK!\n');
       end
@@ -119,6 +120,8 @@ while true
       if opts.horizon
         [horizonU]    = getMetaHorizon( g_WC, img, f );
         fprintf('got horizon OK!\n');
+      else
+        horizonU = zeros( size(img,1), size(img,2) );
       end
       
       if opts.getPsiTru
@@ -142,6 +145,9 @@ while true
       results         = push_to_results( results );
       
       % Generate the return bytes
+      if true_Nframe > opts.max_input_frames 
+        xyF = [666;666]; % send kill code to simulator
+      end
       message = typecast( uint16([xyF(1),xyF(2)]),'uint8');
      
       sfigure(1); 

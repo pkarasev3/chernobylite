@@ -1,8 +1,9 @@
 function opts = getKtrackOpts( )
 
-mode = 'NoCompNoU_HiC';
 %mode = 'NoCompNoU_LoC';
+%mode = 'NoCompNoU_HiC';
 %mode = 'YesCompNoU';
+mode = 'YesCompNoU_EqC';
 
 if strcmp(mode,'NoCompNoU_LoC')
   b_compensateMotion = false(); %true();
@@ -19,6 +20,11 @@ elseif strcmp(mode,'YesCompNoU')
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
   C_iters            = 5; %different count as low, but same *timefactor*
+elseif strcmp(mode,'YesCompNoU_EqC')
+  b_compensateMotion = true();
+  b_computeHorizon   = false();
+  i_maxInputFrames   = 200;
+  C_iters            = 10; %same count as "lo"
 end
 
 res_fname           = [mode '_' num2str(C_iters) '_results.mat'];

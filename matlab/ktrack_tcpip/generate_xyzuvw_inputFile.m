@@ -2,13 +2,13 @@
 % writes a simple CSV array to text, with appropriate extension .xyzuvw
 
 objFileName = 'MiG-35.obj';
-savePath    = '/u4/home/pkarasev3/source/ktrack/testdata/'
+savePath    = '/u4/home/pkarasev3/source/ktrack/testdata/' %#ok<*NOPTS>
 saveToFile  = [savePath, objFileName, '.xyzuvw']                           %#ok<NOPTS>
 
 
 tt = linspace(0,10,1000); tt = tt(:);
 
-Scenario = 1;
+Scenario = 3;
 
 if Scenario == 1
   x  = 10 + 0*tt;
