@@ -7,6 +7,10 @@ function  tkr = getLevelsetTracker( params )
   addpath('~/source/chernobylite/matlab/display_helpers/');
   addpath('~/source/chernobylite/matlab/LSMlibPK/');
   
+  if nargin < 1
+    params = []; params.control_is_on = false; params.Img = zeros(480,640,3);
+  end
+  
   tkr = []; 
   tkr.CONTROL_IS_ON = params.control_is_on; 
   
@@ -16,6 +20,8 @@ function  tkr = getLevelsetTracker( params )
   tkr.img_size = [m,n,cc]; 
   tkr.xx       = xx;
   tkr.yy       = yy;
+  tkr.fx       = 0*xx;
+  tkr.fy       = 0*yy;
   
   tkr.img0     = params.Img;
   tkr.img_show = zeros(m,n,3);
@@ -41,7 +47,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.get_center = @get_center;
   tkr.compensate = @apply_g_compensation;
   
-  bTestShifter = true;
+  bTestShifter = false;
   if bTestShifter
     test_shifter(tkr.phi);
   end
@@ -75,6 +81,8 @@ function  tkr = getLevelsetTracker( params )
 
   
   function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U)
+    global TKR;
+    global KOpts;
     if ndims(Img) == 3
       Img = rgb2gray(Img);
     end
@@ -90,18 +98,31 @@ function  tkr = getLevelsetTracker( params )
     top  = min(roi_i(:)); bottom= max(roi_i(:));
     Img  = Img(top:bottom,left:right);
     phi  = phi(top:bottom,left:right);
-    
+    fx   = TKR.fx(top:bottom,left:right); 
+    fy   = TKR.fy(top:bottom,left:right);
   
     U    = U(top:bottom,left:right);
     
     [mu_i, mu_o]  = compute_means(Img,phi);
     
-    kappa_phi     = 0*phi; dx=0*phi; dy=0*phi;dx2=0*dx;dy2=0*dy;
+    
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
     
-    kappa_phi(1:numel(phi))  = kappa(phi,1:numel(phi));
+    %kappa_phi     = 0*phi; dx=0*phi; dy=0*phi;dx2=0*dx;dy2=0*dy;
+    %kappa_phi(1:numel(phi))  = kappa(phi,1:numel(phi));
    
-  if CONTROL_IS_ON  
+    [kappa_phi, dx, dy] = kappa( phi, dX );
+    if KOpts.incremental_warp
+      Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6);
+      Ny = -dy ./ sqrt(dx.^2+dy.^2+1e-6);
+      fgain = 10 * 10.0 / KOpts.contour_iters;
+      fdotN = -( fx .* Nx + fy .* Ny ) * fgain ;
+    else
+      fdotN = 0*phi;
+    end
+    
+    
+   if CONTROL_IS_ON  
       U = imfilter( (-1 + 2*(U>0)), fspecial('gaussian',[5 5],3),'replicate');
       [U_i, U_o] = compute_means(U,phi);
       % f: |U-U_i| < uMin  maps to 0
@@ -115,8 +136,10 @@ function  tkr = getLevelsetTracker( params )
     f_of_U     = (tkr.f_of_U).*(-g_alpha);
     lambda     = tkr.lambda;
     
+    fprintf('max g_alpha, lambda x fdotN = %4.4f, %4.4f\n',...
+      max(abs(g_alpha(:))),max( lambda*(abs(fdotN(:))) ) );
     
-    dphi  = delta(phi) .* ( g_alpha + f_of_U + lambda * kappa_phi) ;
+    dphi  = delta(phi) .* ( g_alpha + lambda*fdotN + f_of_U + lambda * kappa_phi) ;
     dt0   = 0.9;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
@@ -193,28 +216,23 @@ function  tkr = getLevelsetTracker( params )
     tkr.f     = TKR.f;
     fprintf('| got f = %4.4f |, ',tkr.f);
     
-    % do affine warp more carefully ... 
     m            = tkr.img_size(1);
     n            = tkr.img_size(2);
     [xx yy]      = meshgrid(linspace(1,n,n),linspace(1,m,m));
     
     % !!!! Crucial source of uncertainty
-    %       Can't warp for large translation if 
-    %               this is off, low error margin
+    % Can't warp for large translation if this is off, low error margin
     z0           = -100.0;
-    
     xx           = -(xx - (n-1)/2) / tkr.f * z0;
     yy           =  (yy - (m-1)/2) / tkr.f * z0;
     tkr.xx       = xx;
     tkr.yy       = yy;
     
-    % nullify the T, unless later we trust it ...
-    g_f2f        = tkr.g_f2f;
-    % g_f2f(1:3,4) = 0;
+    g_f2f        = tkr.g_f2f; % nullify the T, unless later we trust it ... % g_f2f(1:3,4) = 0;
     f            = tkr.f;
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
       fprintf('Not compensating, seems like g == identity\n');
-      return; % nothing to do, frame to frame is identity
+     % return; % nothing to do, frame to frame is identity
     end
     
     assert( (10 < f) && (1e5 > f ) );
@@ -239,32 +257,15 @@ function  tkr = getLevelsetTracker( params )
     % Initialization for next ls iters
     TKR.phi0= tkr.phi;
     
-    %xy0            = [x0,y0];
-    %pixel_shift    = [dx,dy];  % SAVE IT!
+    TKR.fx  = xx1-xx ;
+    TKR.fy  = yy1-yy ;
+    
+
+   
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
   end    
 
-  function test_shifter(phi)
-    
-    for itr = 1:1000
-      fx = 1; fy = 1; 
-      [K dx dy dx2 dy2] = kappa( phi );
-      
-      Nx = dx ./ sqrt(dx.^2+dy.^2+1e-9); 
-      Ny = dy ./ sqrt(dx.^2+dy.^2+1e-9);
 
-      fdotN = -( fx * Nx + fx * Ny ) ;
-
-      dphi = fdotN .* delta(phi);
-      dt   = 0.5/max(abs(dphi(:)));
-      phi  = phi+dt*dphi;
-      phi = reinitializeLevelSetFunction( phi, 2, 1,5, 2, 1, true() );
-      sfigure(1); imagesc( 1.0*phi.*(abs(phi>0))); 
-      phi(240,320)
-      drawnow;
-    end
-    
-  end
 
 
   function  [mu_i mu_o] = compute_means( Img,phi )
@@ -286,8 +287,16 @@ function  tkr = getLevelsetTracker( params )
     [epsilon,dX] = get_params();
     z = (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
   end
+
   
+
 end
+
+%     z = real(logm(TKR.g_f2f)) * 180/pi;
+%     if abs(z(2,1)) > 3.0
+%       breakhere = true; 
+%       % Save arrays and g...
+%     end
       
 %     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
 %       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));

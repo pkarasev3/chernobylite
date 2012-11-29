@@ -80,7 +80,10 @@ while true
       while (RecvBytes < expected_bytes) && (tB < RecvTimeout) %(bytes_available == 0)
         bytes_available = input_stream.available;
         if bytes_available > 0
-          fprintf(1,'bytes = %d, total= %d .. ', bytes_available, RecvBytes);
+          print_Bytes = false;
+          if print_Bytes; fprintf(1,'bytes = %d, total= %d .. ', bytes_available, RecvBytes); 
+          end;
+          
           data_reader = DataReader(d_input_stream);
           recv        = data_reader.readBuffer(bytes_available);
           data_raw    = [data_raw, recv(:)'];
