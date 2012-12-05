@@ -26,6 +26,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.img0     = params.Img;
   tkr.img1     = params.Img;
   tkr.img_show = zeros(m,n,3);
+  tkr.xyF      = [n/2;m/2];
   
   [epsilon, dX]= get_params();
   tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
@@ -34,6 +35,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.lambda   = 0.35 * ( max((img_in(:))) - min((img_in(:))) );
   tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)];
   tkr.g_f2f    = eye(4,4);
+  tkr.g_ctrl   = eye(4,4);
   tkr.f        = 500.0;
   
   tkr.psi      = tkr.phi;
@@ -82,11 +84,14 @@ function  tkr = getLevelsetTracker( params )
 
 
   
-  function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U)
+  function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U, t_0to1 )
     global TKR;
     global KOpts;
     if ndims(Img) == 3
       Img = rgb2gray(Img);
+    end
+    if nargin < 3
+      t_0to1 = 0;
     end
     phi           = tkr.phi;
     CONTROL_IS_ON = tkr.CONTROL_IS_ON; 
@@ -95,7 +100,7 @@ function  tkr = getLevelsetTracker( params )
       U = 0 * phi;
     end
     
-    [roi_i, roi_j]= find( phi > -dX*10 );
+    [roi_i, roi_j]= find( phi > -dX*20 );
     left = min(roi_j(:)); right = max(roi_j(:));
     top  = min(roi_i(:)); bottom= max(roi_i(:));
     Img  = Img(top:bottom,left:right);
@@ -106,13 +111,8 @@ function  tkr = getLevelsetTracker( params )
     U    = U(top:bottom,left:right);
     
     [mu_i, mu_o]  = compute_means(Img,phi);
-    
-    
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
-    
-    %kappa_phi     = 0*phi; dx=0*phi; dy=0*phi;dx2=0*dx;dy2=0*dy;
-    %kappa_phi(1:numel(phi))  = kappa(phi,1:numel(phi));
-   
+
     [kappa_phi, dx, dy] = kappa( phi, dX );
     if KOpts.incremental_warp
       Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6);
@@ -140,16 +140,16 @@ function  tkr = getLevelsetTracker( params )
     lambda     = tkr.lambda;
     
     if KOpts.incremental_warp
-      fprintf('max g_alpha, lambda x fdotN = %4.4f, %4.4f\n',...
-      max(abs(g_alpha(:))),max( lambda*(abs(fdotN(:))) ) );
+      fprintf('max g_alpha, fdotN = %4.4f, %4.4f\n',...
+      max(abs(g_alpha(:))),max( (abs(fdotN(:))) ) );
     end
-    dphi  = delta(phi) .* ( g_alpha + lambda*fdotN + f_of_U + lambda * kappa_phi) ;
+    dphi  = delta(phi) .* ( g_alpha + fdotN + f_of_U + lambda * kappa_phi) ;
     dt0   = 0.95;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
     phiArea = trapz(trapz(Heavi( phi ) ) );
-    minArea = 13*13;
+    minArea = 17*17;
     phi     = phi + (phiArea < minArea)*(1.0);
     
     tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
@@ -236,7 +236,26 @@ function  tkr = getLevelsetTracker( params )
     tkr.xx       = xx;
     tkr.yy       = yy;
     
-    g_f2f        = tkr.g_f2f; % nullify the T, unless later we trust it ... % g_f2f(1:3,4) = 0;
+    tx           = TKR.xyF(1) - (n)/2; 
+    ty           = TKR.xyF(2) - (m)/2;
+    if abs(tx)>20
+      tx = sign(tx)*20/abs(tx);
+    end
+    if abs(ty)>20
+      ty = sign(ty)*20/abs(ty);
+    end
+    
+    g_f2f        = tkr.g_f2f % nullify the T, unless later we trust it ... % g_f2f(1:3,4) = 0;
+    z_f2f        = real(logm(g_f2f));
+    w_f2f        = [z_f2f(3,2); -z_f2f(3,1); z_f2f(2,1)];
+    Kt           = 5 / sqrt(m*n);
+    w_ctrl       = [ Kt*ty; -Kt*tx; 0 ]*pi/180;
+    idx = intersect( find( abs(w_ctrl)>abs(w_f2f) ), find( sign(w_ctrl)==sign(w_f2f) ) );
+    w_ctrl( idx ) = w_f2f( idx );
+    
+    g_ctrl       = expm([ [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
+    
+    
     f            = tkr.f;
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
       fprintf('Not compensating, seems like g == identity\n');
@@ -248,7 +267,12 @@ function  tkr = getLevelsetTracker( params )
     % apply the affine warp to tkr.phi 
     u0 = xx;
     v0 = yy;
-    uv = (g_f2f^-1) * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
+    
+    TKR.g_ctrl = g_ctrl;
+    g_f2fb = g_f2f; %g_ctrl^-1 * g_f2f  
+    g_comp =  (g_f2fb^-1); % *
+    uv     = g_comp * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
+    %uv = (g_f2f^-1) * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
     
     u1 =  z0 * uv(1,:)./uv(3,:) ;
     v1 =  z0 * uv(2,:)./uv(3,:) ;
@@ -270,9 +294,15 @@ function  tkr = getLevelsetTracker( params )
     
     zf2f=real(logm(g_f2f));
     roll_ang=abs( zf2f(2,1) ) * 180/pi; 
-    fprintf('roll_ang=%4.4f ; ',roll_ang);
+    yaw_ang =abs( zf2f(3,2) ) * 180/pi; 
+    pitch_ang =abs( zf2f(3,1) ) * 180/pi; 
+    fprintf('roll_ang=%4.4f, yaw_ang=%4.4f, pitch_ang=%4.4f\n',roll_ang,yaw_ang,pitch_ang);
     if roll_ang  > 10.0
       fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
+      breakhere=1;
+    end
+    if yaw_ang  > 1.0
+      fprintf('\nLarge Yaw!! =%4.4f \n',yaw_ang);
       breakhere=1;
     end
 
@@ -290,7 +320,7 @@ function  tkr = getLevelsetTracker( params )
 
   function [epsilon,dX] = get_params()
     epsilon   = sqrt(2);
-    dX        = 1/sqrt(2);
+    dX        = 1/2 * 1/sqrt(2);
   end
   
   function z = Heavi(z)

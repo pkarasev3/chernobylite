@@ -2,8 +2,8 @@ function opts = getKtrackOpts( )
 
 %mode = 'NoCompNoU_LoC';
 %mode = 'NoCompNoU_HiC';
-%mode = 'YesCompNoU';
-mode = 'YesCompNoU_Inc';
+mode = 'YesCompNoU';
+%mode = 'YesCompNoU_Inc';
 
 saveRate = 0;
 showRate = 5;
@@ -24,12 +24,13 @@ elseif strcmp(mode,'YesCompNoU')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
+  showRate           = 1;
   C_iters            = 10; %different count as low, but same *timefactor*
 elseif strcmp(mode,'YesCompNoU_Inc')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
-  C_iters            = 5; 
+  C_iters            = 10; 
   showRate           = 1;
   b_incrementalWarp  = true;
 end
