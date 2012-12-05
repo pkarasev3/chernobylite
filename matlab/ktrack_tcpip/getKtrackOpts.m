@@ -24,12 +24,12 @@ elseif strcmp(mode,'YesCompNoU')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
-  C_iters            = 5; %different count as low, but same *timefactor*
+  C_iters            = 10; %different count as low, but same *timefactor*
 elseif strcmp(mode,'YesCompNoU_Inc')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
-  C_iters            = 10; %same count as "lo"
+  C_iters            = 5; 
   showRate           = 1;
   b_incrementalWarp  = true;
 end

@@ -24,6 +24,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.fy       = 0*yy;
   
   tkr.img0     = params.Img;
+  tkr.img1     = params.Img;
   tkr.img_show = zeros(m,n,3);
   
   [epsilon, dX]= get_params();
@@ -37,6 +38,7 @@ function  tkr = getLevelsetTracker( params )
   
   tkr.psi      = tkr.phi;
   tkr.phi0     = tkr.phi;
+  tkr.phi1     = tkr.phi;
   
   % METHODS
   tkr.Heavi      = @Heavi;
@@ -115,8 +117,9 @@ function  tkr = getLevelsetTracker( params )
     if KOpts.incremental_warp
       Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6);
       Ny = -dy ./ sqrt(dx.^2+dy.^2+1e-6);
-      fgain = 10 * 10.0 / KOpts.contour_iters;
-      fdotN = -( fx .* Nx + fy .* Ny ) * fgain ;
+      fgain = 50.0 / KOpts.contour_iters;
+      fdotN = -( fx .* Nx + fy .* Ny )*fgain ;
+      %fdotN =  fgain / (1+max(abs(fdotN(:))));
     else
       fdotN = 0*phi;
     end
@@ -136,11 +139,12 @@ function  tkr = getLevelsetTracker( params )
     f_of_U     = (tkr.f_of_U).*(-g_alpha);
     lambda     = tkr.lambda;
     
-    fprintf('max g_alpha, lambda x fdotN = %4.4f, %4.4f\n',...
+    if KOpts.incremental_warp
+      fprintf('max g_alpha, lambda x fdotN = %4.4f, %4.4f\n',...
       max(abs(g_alpha(:))),max( lambda*(abs(fdotN(:))) ) );
-    
+    end
     dphi  = delta(phi) .* ( g_alpha + lambda*fdotN + f_of_U + lambda * kappa_phi) ;
-    dt0   = 0.9;
+    dt0   = 0.95;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
@@ -203,8 +207,12 @@ function  tkr = getLevelsetTracker( params )
     
     %imshow(img_show);
     
+    TKR.img1(:)     = TKR.img0(:);
     TKR.img0(:)     = img0(:);
     TKR.img_show(:) = img_show(:);
+    
+    TKR.phi1(:)     = TKR.phi(:);
+    TKR.phi0(:)     = phi(:);
     TKR.phi(:)      = phi(:);
     
   end
@@ -260,6 +268,13 @@ function  tkr = getLevelsetTracker( params )
     TKR.fx  = xx1-xx ;
     TKR.fy  = yy1-yy ;
     
+    zf2f=real(logm(g_f2f));
+    roll_ang=abs( zf2f(2,1) ) * 180/pi; 
+    fprintf('roll_ang=%4.4f ; ',roll_ang);
+    if roll_ang  > 10.0
+      fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
+      breakhere=1;
+    end
 
    
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
