@@ -24,7 +24,9 @@ function  tkr = getLevelsetTracker( params )
   tkr.fy       = 0*yy;
   
   tkr.img0     = params.Img;
+  tkr.img1     = params.Img;
   tkr.img_show = zeros(m,n,3);
+  tkr.xyF      = [n/2;m/2];
   
   [epsilon, dX]= get_params();
   tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
@@ -37,6 +39,7 @@ function  tkr = getLevelsetTracker( params )
   
   tkr.psi      = tkr.phi;
   tkr.phi0     = tkr.phi;
+  tkr.phi1     = tkr.phi;
   
   % METHODS
   tkr.Heavi      = @Heavi;
@@ -80,11 +83,14 @@ function  tkr = getLevelsetTracker( params )
 
 
   
-  function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U)
+  function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U, t_0to1 )
     global TKR;
     global KOpts;
     if ndims(Img) == 3
       Img = rgb2gray(Img);
+    end
+    if nargin < 3
+      t_0to1 = 0;
     end
     phi           = tkr.phi;
     CONTROL_IS_ON = tkr.CONTROL_IS_ON; 
@@ -93,7 +99,7 @@ function  tkr = getLevelsetTracker( params )
       U = 0 * phi;
     end
     
-    [roi_i, roi_j]= find( phi > -dX*10 );
+    [roi_i, roi_j]= find( phi > -dX*20 );
     left = min(roi_j(:)); right = max(roi_j(:));
     top  = min(roi_i(:)); bottom= max(roi_i(:));
     Img  = Img(top:bottom,left:right);
@@ -104,19 +110,17 @@ function  tkr = getLevelsetTracker( params )
     U    = U(top:bottom,left:right);
     
     [mu_i, mu_o]  = compute_means(Img,phi);
-    
-    
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
-    
-    %kappa_phi     = 0*phi; dx=0*phi; dy=0*phi;dx2=0*dx;dy2=0*dy;
-    %kappa_phi(1:numel(phi))  = kappa(phi,1:numel(phi));
-   
+
     [kappa_phi, dx, dy] = kappa( phi, dX );
     if KOpts.incremental_warp
-      Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6);
-      Ny = -dy ./ sqrt(dx.^2+dy.^2+1e-6);
-      fgain = 10 * 10.0 / KOpts.contour_iters;
-      fdotN = -( fx .* Nx + fy .* Ny ) * fgain ;
+      Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6) * abs( TKR.xyF(1) - [n/2] );
+      Ny = -dy ./ sqrt(dx.^2+dy.^2+1e-6) * abs( TKR.xyF(2) - [m/2] );
+      [m,n] = size( TKR.img0 );
+%      Kxy= (norm( TKR.xyF(:) - [n/2;m/2] ) / 100.0 ) * 200.0 ;
+     % fprintf('Kxy= %4.4f  ; ',Kxy );
+      fgain = (1-t_0to1^2) * max(abs(g_alpha(:))) / KOpts.contour_iters;
+      fdotN = -( fx .* Nx + fy .* Ny )*fgain;
     else
       fdotN = 0*phi;
     end
@@ -136,16 +140,17 @@ function  tkr = getLevelsetTracker( params )
     f_of_U     = (tkr.f_of_U).*(-g_alpha);
     lambda     = tkr.lambda;
     
-    fprintf('max g_alpha, lambda x fdotN = %4.4f, %4.4f\n',...
-      max(abs(g_alpha(:))),max( lambda*(abs(fdotN(:))) ) );
-    
-    dphi  = delta(phi) .* ( g_alpha + lambda*fdotN + f_of_U + lambda * kappa_phi) ;
-    dt0   = 0.9;
+    if KOpts.incremental_warp
+      fprintf('max g_alpha, fdotN = %4.4f, %4.4f\n',...
+      max(abs(g_alpha(:))),max( (abs(fdotN(:))) ) );
+    end
+    dphi  = delta(phi) .* ( g_alpha + fdotN + f_of_U + lambda * kappa_phi) ;
+    dt0   = 0.95;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     
     phiArea = trapz(trapz(Heavi( phi ) ) );
-    minArea = 13*13;
+    minArea = 17*17;
     phi     = phi + (phiArea < minArea)*(1.0);
     
     tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
@@ -203,8 +208,12 @@ function  tkr = getLevelsetTracker( params )
     
     %imshow(img_show);
     
+    TKR.img1(:)     = TKR.img0(:);
     TKR.img0(:)     = img0(:);
     TKR.img_show(:) = img_show(:);
+    
+    TKR.phi1(:)     = TKR.phi(:);
+    TKR.phi0(:)     = phi(:);
     TKR.phi(:)      = phi(:);
     
   end
@@ -260,6 +269,13 @@ function  tkr = getLevelsetTracker( params )
     TKR.fx  = xx1-xx ;
     TKR.fy  = yy1-yy ;
     
+    zf2f=real(logm(g_f2f));
+    roll_ang=abs( zf2f(2,1) ) * 180/pi; 
+    fprintf('roll_ang=%4.4f ; ',roll_ang);
+    if roll_ang  > 10.0
+      fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
+      breakhere=1;
+    end
 
    
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
@@ -275,7 +291,7 @@ function  tkr = getLevelsetTracker( params )
 
   function [epsilon,dX] = get_params()
     epsilon   = sqrt(2);
-    dX        = 1/sqrt(2);
+    dX        = 1/2 * 1/sqrt(2);
   end
   
   function z = Heavi(z)

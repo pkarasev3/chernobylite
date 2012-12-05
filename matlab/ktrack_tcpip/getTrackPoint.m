@@ -46,10 +46,11 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   itrs = KOpts.contour_iters;
   for m = 1:itrs
-    tkr.update_phi(img,U_in);
+    tkr.update_phi(img,U_in,m/itrs);
   end
   
-  xyF = tkr.get_center();
+  xyF     = tkr.get_center();
+  TKR.xyF = xyF;
   
   tkr.display(img); % Careful, this responsible stuff moving tkr => TKR 
   
