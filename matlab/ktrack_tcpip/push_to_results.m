@@ -15,7 +15,7 @@ function results = push_to_results( results )
 
   true_xy     = TKR.true_xy;
   xyF         = TKR.xyF;
-  Nframe      = TKR.true_Nframe;
+  Nframe      = TKR.curr_Nframe;
   
   % restrict these to an roi...
   phi     = TKR.phi(TKR.yroi,TKR.xroi);

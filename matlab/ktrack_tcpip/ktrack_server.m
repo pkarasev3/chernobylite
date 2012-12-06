@@ -35,7 +35,8 @@ else
   server_socket.close(); %#ok<SUSENS>
   io_socket.close(); %#ok<SUSENS>
 end
-global TKR;  TKR = [];
+global TKR;  TKR = []; 
+TKR.curr_Nframe=0;
 
 
 while true
@@ -132,6 +133,11 @@ while true
         fprintf('got "true" sdf OK!\n');
       end
          
+      TKR.true_xy     = true_xy;
+      TKR.prev_Nframe = TKR.curr_Nframe;
+      TKR.curr_Nframe = true_Nframe;
+      TKR.Zbuffer     = Zbuffer;
+    
       % Run tracker. Inputs should be: {img, g_WC, U, f, tracker_type}
       localMaxBright = 'local_max_bright';
       levelsetMeans  = 'mean_align_levelset';
@@ -139,12 +145,9 @@ while true
       xyF = getTrackPoint( img, xy0, horizonU, trackerType);
       fprintf('trackpoint OK!\n');
       xy0        = xyF;
-     
-      % Store into results for later evaluation
-      TKR.true_xy     = true_xy;
-      TKR.true_Nframe = true_Nframe;
-      TKR.Zbuffer     = Zbuffer;
       TKR.xyF         = xyF;
+      
+      % Store into results for later evaluation
       results         = push_to_results( results );
       
       % Generate the return bytes
@@ -154,7 +157,7 @@ while true
       message = typecast( uint16([xyF(1),xyF(2)]),'uint8');
      
       sfigure(1); 
-      title([ sprintf('Received image %05d, x=%3.2f,y=%3.2f', ...
+      title([ sprintf('got img# %05d, x=%3.2f,y=%3.2f', ...
          frameIdx,xyF(1),xyF(2)),', Server img#: ' num2str(true_Nframe) ] );
       
       
@@ -184,8 +187,10 @@ while true
       s_ = s;
       disp(['last error was: ']); 
       s.stack.file
-        s.stack.line
-        s.stack.name
+      s.stack.line
+      s.stack.name
+      s_.stack(1).file 
+      num2str(s_.stack(1).line)
       %s.message
     end
     if ~isempty(server_socket)

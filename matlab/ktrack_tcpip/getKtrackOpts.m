@@ -24,8 +24,8 @@ elseif strcmp(mode,'YesCompNoU')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
-  showRate           = 1;
-  C_iters            = 10; %different count as low, but same *timefactor*
+  showRate           = 5;
+  C_iters            = 5; %different count as low, but same *timefactor*
 elseif strcmp(mode,'YesCompNoU_Inc')
   b_compensateMotion = true();
   b_computeHorizon   = false();

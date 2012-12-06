@@ -28,6 +28,10 @@ function  tkr = getLevelsetTracker( params )
   tkr.img_show = zeros(m,n,3);
   tkr.xyF      = [n/2;m/2];
   
+  tkr.curr_Nframe = 0;% source's count of image (having this is not cheating)
+  tkr.prev_Nframe = 0;% source's count of image (having this is not cheating)
+  tkr.true_xy  = [n/2;m/2];% for ground-truth eval
+  
   [epsilon, dX]= get_params();
   tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 2,dX, 2, 2, true() );
@@ -100,7 +104,7 @@ function  tkr = getLevelsetTracker( params )
       U = 0 * phi;
     end
     
-    [roi_i, roi_j]= find( phi > -dX*20 );
+    [roi_i, roi_j]= find( phi > -dX*10 );
     left = min(roi_j(:)); right = max(roi_j(:));
     top  = min(roi_i(:)); bottom= max(roi_i(:));
     Img  = Img(top:bottom,left:right);
@@ -238,23 +242,27 @@ function  tkr = getLevelsetTracker( params )
     
     tx           = TKR.xyF(1) - (n)/2; 
     ty           = TKR.xyF(2) - (m)/2;
-    if abs(tx)>20
-      tx = sign(tx)*20/abs(tx);
-    end
-    if abs(ty)>20
-      ty = sign(ty)*20/abs(ty);
-    end
-    
-    g_f2f        = tkr.g_f2f % nullify the T, unless later we trust it ... % g_f2f(1:3,4) = 0;
+
+    g_f2f        = tkr.g_f2f; % nullify the T, unless later we trust it ... % g_f2f(1:3,4) = 0;
     z_f2f        = real(logm(g_f2f));
-    w_f2f        = [z_f2f(3,2); -z_f2f(3,1); z_f2f(2,1)];
-    Kt           = 5 / sqrt(m*n);
-    w_ctrl       = [ Kt*ty; -Kt*tx; 0 ]*pi/180;
-    idx = intersect( find( abs(w_ctrl)>abs(w_f2f) ), find( sign(w_ctrl)==sign(w_f2f) ) );
-    w_ctrl( idx ) = w_f2f( idx );
+    w_f2f        = [z_f2f(3,2); -z_f2f(3,1); z_f2f(2,1)]';
+    Kt           = 3 / sqrt(m*n);
+    w_ctrl       = [Kt*ty; Kt*tx; 0 ]'*pi/180;
+    
+    % Bound the control appropriately
+    yaw_and_pitch = w_ctrl(1:2)*180/pi;
+    yaw_and_pitch(yaw_and_pitch<-0.25)=-0.25;
+    yaw_and_pitch(yaw_and_pitch> 0.25)= 0.25;
+    w_ctrl(1:2) = yaw_and_pitch*pi/180;
     
     g_ctrl       = expm([ [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
     
+    tauDelay     = TKR.curr_Nframe - TKR.prev_Nframe;
+    w_f2f_hat    = w_f2f- tauDelay * w_ctrl;
+    fprintf( 'Ndelay=%02d, wx=%4.4f, wy=%4.4f, wz=%4.4f \n',tauDelay,...
+                                                            w_f2f_hat(1),...
+                                                            w_f2f_hat(2),...
+                                                            w_f2f_hat(3) );
     
     f            = tkr.f;
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
@@ -269,7 +277,7 @@ function  tkr = getLevelsetTracker( params )
     v0 = yy;
     
     TKR.g_ctrl = g_ctrl;
-    g_f2fb = g_f2f; %g_ctrl^-1 * g_f2f  
+    g_f2fb = g_ctrl^-1 * g_f2f;
     g_comp =  (g_f2fb^-1); % *
     uv     = g_comp * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
     %uv = (g_f2f^-1) * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
@@ -293,9 +301,9 @@ function  tkr = getLevelsetTracker( params )
     TKR.fy  = yy1-yy ;
     
     zf2f=real(logm(g_f2f));
-    roll_ang=abs( zf2f(2,1) ) * 180/pi; 
-    yaw_ang =abs( zf2f(3,2) ) * 180/pi; 
-    pitch_ang =abs( zf2f(3,1) ) * 180/pi; 
+    roll_ang=( zf2f(2,1) ) * 180/pi; 
+    pitch_ang=( zf2f(3,2) ) * 180/pi; 
+    yaw_ang =( zf2f(3,1) ) * 180/pi; 
     fprintf('roll_ang=%4.4f, yaw_ang=%4.4f, pitch_ang=%4.4f\n',roll_ang,yaw_ang,pitch_ang);
     if roll_ang  > 10.0
       fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
