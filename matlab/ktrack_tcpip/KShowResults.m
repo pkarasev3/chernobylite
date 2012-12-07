@@ -36,7 +36,7 @@ for k =1:numel(resnames)
   
   
   % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-  ang = s.results.ang_diff(idx0:end);
+  ang = s.results.ang_diff(idx0:end) * 180 / pi;
   m_b = mean(ang); sd_b = sqrt(var(ang));
   
   sfigure(3); hold on; 
@@ -51,12 +51,13 @@ for k =1:numel(resnames)
 
 end
 
-sfigure(2); ylabel('\psi-\phi error');
-axis([0,numel(resnames)+1,0,500]); grid on; drawnow;
+sfigure(2); ylabel('segmentation error');
+axis([0,numel(resnames)+1,10,900]); 
+grid on; drawnow; pause(0.05);
 matlab2tikz('ktrack_boxplot_1.tikz.tex','width','13cm','height','5cm');
 
 sfigure(3); ylabel('frame-to-frame angular displacement');
-axis([0,numel(resnames)+1,0,0.03]); grid on; drawnow; 
+axis([0,numel(resnames)+1,0,2]); grid on; drawnow; pause(0.05); 
 matlab2tikz('ktrack_boxplot_2.tikz.tex','width','13cm','height','5cm');
 
 !cp -v ./*.tex   ~/source/visioncontrol/thesis-pk/figs/
