@@ -215,10 +215,26 @@ function  tkr = getLevelsetTracker( params )
     TKR.img0(:)     = img0(:);
     TKR.img_show(:) = img_show(:);
     
-    TKR.phi1(:)     = TKR.phi(:);
+    TKR.phi1(:)     = TKR.phi0(:);
     TKR.phi0(:)     = phi(:);
-    TKR.phi(:)      = phi(:);
+    TKR.phi0(:)     = phi(:);
     
+    g_f2f = TKR.g_f2f;
+    zf2f=real(logm(g_f2f));
+    roll_ang=( zf2f(2,1) ) * 180/pi; 
+    pitch_ang=( zf2f(3,2) ) * 180/pi; 
+    yaw_ang =( zf2f(3,1) ) * 180/pi; 
+    fprintf('roll_ang=%4.4f, yaw_ang=%4.4f, pitch_ang=%4.4f\n',roll_ang,yaw_ang,pitch_ang);
+    if abs(roll_ang)  > 2.0
+      fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
+      breakhere=1;
+    end
+    if yaw_ang  > 1.0
+      fprintf('\nLarge Yaw!! =%4.4f \n',yaw_ang);
+      breakhere=1;
+    end
+    
+    fprintf('');
   end
 
   function [g_f2f] = apply_g_compensation(  )
@@ -280,7 +296,6 @@ function  tkr = getLevelsetTracker( params )
     g_f2fb = g_ctrl^-1 * g_f2f;
     g_comp =  (g_f2fb^-1); % *
     uv     = g_comp * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
-    %uv = (g_f2f^-1) * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
     
     u1 =  z0 * uv(1,:)./uv(3,:) ;
     v1 =  z0 * uv(2,:)./uv(3,:) ;
@@ -299,20 +314,9 @@ function  tkr = getLevelsetTracker( params )
     
     TKR.fx  = xx1-xx ;
     TKR.fy  = yy1-yy ;
+    TKR.xx  = xx;
+    TKR.yy  = yy;
     
-    zf2f=real(logm(g_f2f));
-    roll_ang=( zf2f(2,1) ) * 180/pi; 
-    pitch_ang=( zf2f(3,2) ) * 180/pi; 
-    yaw_ang =( zf2f(3,1) ) * 180/pi; 
-    fprintf('roll_ang=%4.4f, yaw_ang=%4.4f, pitch_ang=%4.4f\n',roll_ang,yaw_ang,pitch_ang);
-    if roll_ang  > 10.0
-      fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
-      breakhere=1;
-    end
-    if yaw_ang  > 1.0
-      fprintf('\nLarge Yaw!! =%4.4f \n',yaw_ang);
-      breakhere=1;
-    end
 
    
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);

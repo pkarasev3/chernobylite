@@ -54,10 +54,10 @@ end
 sfigure(2); ylabel('segmentation error');
 axis([0,numel(resnames)+1,10,900]); 
 grid on; drawnow; pause(0.05);
-matlab2tikz('ktrack_boxplot_1.tikz.tex','width','13cm','height','5cm');
+matlab2tikz('ktrack_boxplot_1.tikz.tex','width','6cm','height','7cm');
 
-sfigure(3); ylabel('frame-to-frame angular displacement');
+sfigure(3); ylabel('angular displacement (deg)');
 axis([0,numel(resnames)+1,0,2]); grid on; drawnow; pause(0.05); 
-matlab2tikz('ktrack_boxplot_2.tikz.tex','width','13cm','height','5cm');
+matlab2tikz('ktrack_boxplot_2.tikz.tex','width','6cm','height','7cm');
 
 !cp -v ./*.tex   ~/source/visioncontrol/thesis-pk/figs/
