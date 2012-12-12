@@ -2,19 +2,55 @@ function debugTestShifter()
 
 load shiftDataX_big;
 
-phi = tkr.phi;
-phi1= tkr.phi0;
+phi = TKR.phi0;
+phi1= TKR.phi1;
     
-fx  = xx1-xx ;
-fy  = yy1-yy ;
+fx  = TKR.fx ;
+fy  = TKR.fy ;
+xx  = TKR.xx; yy = TKR.yy;
 sfigure(2); 
-roix=1:16:480; roiy = 1:16:640; 
-quiver( xx(roix,roiy),yy(roix,roiy), fx(roix,roiy), fy(roix,roiy),3 );
+roix=1:32:480; roiy = 1:32:640; 
+quiver( xx(roix,roiy),yy(roix,roiy), fx(roix,roiy), fy(roix,roiy),2 );
 
-[~,dX] = get_params();
+[epsilon,dX] = get_params();
 
 phi = reinitializeLevelSetFunction( phi, 2, dX,20, 1, 1, true() );
 phi1= reinitializeLevelSetFunction( phi1, 2, dX,20, 1, 1, true() );
+
+sfigure(1); 
+img_show = repmat( 0.1*TKR.img0, [1 1 3] );
+imgg= img_show(:,:,2);
+imgr= img_show(:,:,1); imgb=img_show(:,:,3); phi_show_thresh = epsilon/sqrt(2);
+ imgr( abs( phi ) < phi_show_thresh ) = 0;
+    imgb( abs( phi ) < phi_show_thresh ) = 0;
+    imgg( abs( phi ) < phi_show_thresh) = (imgg( abs( phi ) < phi_show_thresh) .* ...
+      abs( phi(abs(phi) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh );
+    img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
+    img_show(img_show>1)=1; img_show(img_show<0)=0;
+    imshow(flipdim(img_show,1));
+drawnow; pause(0.05);
+matlab2tikz('ktrack_afterRoll_img2_tikz.tex','relativePngPath','./figs','width','6.4cm','height','4.8cm');
+
+
+    sfigure(3);
+img_show2 = repmat( 0.1*TKR.img1, [1 1 3] );
+imgg= img_show2(:,:,2);
+imgr= img_show2(:,:,1); imgb=img_show2(:,:,3); phi_show_thresh = epsilon/sqrt(2);
+ imgr( abs( phi1 ) < phi_show_thresh ) = 0;
+    imgb( abs( phi1 ) < phi_show_thresh ) = 0;
+    imgg( abs( phi1 ) < phi_show_thresh) = (imgg( abs( phi1 ) < phi_show_thresh) .* ...
+      abs( phi1(abs(phi1) < phi_show_thresh ) )/phi_show_thresh  + ...
+      1.5 * (phi_show_thresh - abs( phi1(abs(phi1) < phi_show_thresh ) ) )/phi_show_thresh );
+    img_show2(:,:,1) = imgr; img_show2(:,:,2) = imgg; img_show2(:,:,3) = imgb;
+    img_show2(img_show2>1)=1; img_show2(img_show2<0)=0;
+    imshow(flipdim(img_show2,1));    
+drawnow; pause(0.05);
+matlab2tikz('ktrack_beforeRoll_img1_tikz.tex','relativePngPath','./figs','width','6.4cm','height','4.8cm');
+    
+
+%!cp -v ./ktrack_afterRoll*   ~/source/visioncontrol/thesis-pk/figs/
+%!cp -v ./ktrack_beforeRoll*   ~/source/visioncontrol/thesis-pk/figs/    
 
 itrMax = 100;
   for itr = 1:itrMax

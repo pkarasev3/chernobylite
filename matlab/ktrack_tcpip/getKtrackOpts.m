@@ -2,8 +2,8 @@ function opts = getKtrackOpts( )
 
 %mode = 'NoCompNoU_LoC';
 %mode = 'NoCompNoU_HiC';
-mode = 'YesCompNoU';
-%mode = 'YesCompNoU_Inc';
+%mode = 'YesCompNoU';
+mode = 'YesCompNoU_Inc';
 
 saveRate = 0;
 showRate = 5;
