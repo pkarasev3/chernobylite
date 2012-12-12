@@ -215,9 +215,10 @@ function  tkr = getLevelsetTracker( params )
     TKR.img0(:)     = img0(:);
     TKR.img_show(:) = img_show(:);
     
+    TKR.phi(:)      = TKR.phi1(:);
     TKR.phi1(:)     = TKR.phi0(:);
     TKR.phi0(:)     = phi(:);
-    TKR.phi0(:)     = phi(:);
+    
     
     g_f2f = TKR.g_f2f;
     zf2f=real(logm(g_f2f));

@@ -49,8 +49,8 @@ drawnow; pause(0.05);
 matlab2tikz('ktrack_beforeRoll_img1_tikz.tex','relativePngPath','./figs','width','6.4cm','height','4.8cm');
     
 
-!cp -v ./ktrack_afterRoll*   ~/source/visioncontrol/thesis-pk/figs/
-!cp -v ./ktrack_beforeRoll*   ~/source/visioncontrol/thesis-pk/figs/    
+%!cp -v ./ktrack_afterRoll*   ~/source/visioncontrol/thesis-pk/figs/
+%!cp -v ./ktrack_beforeRoll*   ~/source/visioncontrol/thesis-pk/figs/    
 
 itrMax = 100;
   for itr = 1:itrMax
