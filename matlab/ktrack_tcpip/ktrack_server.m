@@ -182,7 +182,8 @@ while true
     
   catch                          %#ok<CTCH> 
     s = lasterror;               %#ok<LERR>
-    bInterestingError = isempty(strfind(s.message,'java.net.SocketTimeoutException: Accept timed out'));
+    bInterestingError = isempty(strfind(s.message,...
+                                     'java.net.SocketTimeoutException: Accept timed out'));
     if bInterestingError
       s_ = s;
       disp(['last error was: ']); 

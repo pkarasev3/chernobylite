@@ -28,10 +28,10 @@ for k =1:numel(resnames)
   d_a = s.results.D_ls_err(idx0:end);
   m_a = mean(d_a); sd_a = sqrt(var(d_a));
   
-  f2=sfigure(2); hold on; 
-  semilogy( [k k], [min(d_a),max(d_a)], 'b--s', 'LineWidth',3);
-  semilogy( [k k], [m_a-sd_a,m_a+sd_a], 'b-o', 'LineWidth',6); 
-  semilogy( k, m_a, cntr_colors{k},'MarkerSize',11,'MarkerFaceColor',cntr_colors{k}(1) );
+  sfigure(2); hold on; 
+  plot( [k k], [min(d_a),max(d_a)], 'b--s', 'LineWidth',3);
+  plot( [k k], [m_a-sd_a,m_a+sd_a], 'b-o', 'LineWidth',6); 
+  plot( k, m_a, cntr_colors{k},'MarkerSize',11,'MarkerFaceColor',cntr_colors{k}(1) );
   hold off;
   
   
