@@ -227,10 +227,15 @@ function  tkr = getLevelsetTracker( params )
     yaw_ang =( zf2f(3,1) ) * 180/pi; 
     fprintf('roll_ang=%4.4f, yaw_ang=%4.4f, pitch_ang=%4.4f\n',roll_ang,yaw_ang,pitch_ang);
     if abs(roll_ang)  > 2.0
-      fprintf('\nLarge Roll!! =%4.4f \n',roll_ang);
-      breakhere=1;
+      fprintf('\nLarge Roll!! =%4.4f ',roll_ang);
+      centroidError = norm( TKR.xyF - [320;240], 2);
+      if abs(roll_ang) > 2.0 && centroidError > 200.0
+        fprintf(', and Large |xyF|!! =%4.4f \n',centroidError);
+        fprintf(' *** \n');
+      end
+      fprintf('\n');
     end
-    if yaw_ang  > 1.0
+    if abs(yaw_ang)  > 1.0
       fprintf('\nLarge Yaw!! =%4.4f \n',yaw_ang);
       breakhere=1;
     end
