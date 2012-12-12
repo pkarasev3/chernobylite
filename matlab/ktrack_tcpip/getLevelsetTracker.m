@@ -250,6 +250,8 @@ function  tkr = getLevelsetTracker( params )
     
     % !!!! Crucial source of uncertainty
     % Can't warp for large translation if this is off, low error margin
+    
+    % Interesting concept: use particle filter, use multiple z0 to sample
     z0           = -100.0;
     xx           = -(xx - (n-1)/2) / tkr.f * z0;
     yy           =  (yy - (m-1)/2) / tkr.f * z0;
@@ -259,7 +261,7 @@ function  tkr = getLevelsetTracker( params )
     tx           = TKR.xyF(1) - (n)/2; 
     ty           = TKR.xyF(2) - (m)/2;
 
-    g_f2f        = tkr.g_f2f; % nullify the T, unless later we trust it ... % g_f2f(1:3,4) = 0;
+    g_f2f        = tkr.g_f2f; 
     z_f2f        = real(logm(g_f2f));
     w_f2f        = [z_f2f(3,2); -z_f2f(3,1); z_f2f(2,1)]';
     Kt           = 3 / sqrt(m*n);

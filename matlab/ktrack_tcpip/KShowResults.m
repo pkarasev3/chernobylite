@@ -28,10 +28,10 @@ for k =1:numel(resnames)
   d_a = s.results.D_ls_err(idx0:end);
   m_a = mean(d_a); sd_a = sqrt(var(d_a));
   
-  sfigure(2); hold on; 
-  plot( [k k], [min(d_a),max(d_a)], 'b--s', 'LineWidth',3);
-  plot( [k k], [m_a-sd_a,m_a+sd_a], 'b-o', 'LineWidth',6); 
-  plot( k, m_a, cntr_colors{k},'MarkerSize',11,'MarkerFaceColor',cntr_colors{k}(1) );
+  f2=sfigure(2); hold on; 
+  semilogy( [k k], [min(d_a),max(d_a)], 'b--s', 'LineWidth',3);
+  semilogy( [k k], [m_a-sd_a,m_a+sd_a], 'b-o', 'LineWidth',6); 
+  semilogy( k, m_a, cntr_colors{k},'MarkerSize',11,'MarkerFaceColor',cntr_colors{k}(1) );
   hold off;
   
   
@@ -51,13 +51,13 @@ for k =1:numel(resnames)
 
 end
 
-sfigure(2); ylabel('segmentation error');
+f2=sfigure(2); ylabel('segmentation error');
 axis([0,numel(resnames)+1,10,900]); 
 grid on; drawnow; pause(0.05);
-matlab2tikz('ktrack_boxplot_1.tikz.tex','width','6cm','height','7cm');
+matlab2tikz('ktrack_boxplot_1.tikz.tex','width','10cm','height','7cm');
 
 sfigure(3); ylabel('angular displacement (deg)');
 axis([0,numel(resnames)+1,0,2]); grid on; drawnow; pause(0.05); 
-matlab2tikz('ktrack_boxplot_2.tikz.tex','width','6cm','height','7cm');
+matlab2tikz('ktrack_boxplot_2.tikz.tex','width','10cm','height','7cm');
 
 !cp -v ./*.tex   ~/source/visioncontrol/thesis-pk/figs/
