@@ -1,6 +1,9 @@
 /** "Concurrent read/write into data structure S"
 
   */
+
+#define BOOST_HAS_RVALUE_REFS 0
+
 #include <boost/thread.hpp>
 #include <boost/thread/mutex.hpp>
 #include <boost/thread/locks.hpp>
@@ -14,7 +17,7 @@ using namespace std;
 
 struct Worker {
 
-  Worker():key(0),L(NULL),GlobalMutex(NULL)
+  explicit Worker():key(0),L(NULL),GlobalMutex(NULL)
   {
   }
   void operator()() { // do stuff
@@ -41,10 +44,11 @@ struct Worker {
   int key;          // number of calls to this worker
   std::list<int>*  L; // a pointer to shared memory object
   boost::mutex*  GlobalMutex;
+private:
 };
 
 /**
- * 
+ *
  * Sample Output, |L| is the list size, key is the # of thread
 
 key=1, |L|=506, prev|L|=1
@@ -70,11 +74,11 @@ int main( int argc, char* argv[] )
   std::vector<boost::shared_ptr<boost::thread> > threads;
   boost::shared_ptr<boost::mutex>  globalMutex(new boost::mutex);
   while( ++k < kmax )  {
-    Worker w;
-    w.L   = &shared;
-    w.key = k;
-    w.GlobalMutex = globalMutex.get();
-    boost::shared_ptr<boost::thread>  T(new boost::thread(w) );
+    boost::shared_ptr<Worker> w(new Worker);
+    w->L   = &shared;
+    w->key = k;
+    w->GlobalMutex = globalMutex.get();
+    boost::shared_ptr<boost::thread>  T(new boost::thread(*w) );
     threads.push_back( T );
     usleep(10000);
   }
