@@ -6,9 +6,9 @@ load shiftDataT_big;
 phi_init = TKR.phi;
 phi1     = double(TKR.psi); % transformed phi_init or true mask
 
-bSwap = true; % Swap the frames because undoing large roll makes more practical sense
-tmp   = phi1; phi1 = phi_init; phi_init=tmp; tmp = TKR.img0; TKR.img0(:)=TKR.img1(:); TKR.img1(:)=tmp(:);
-TKR.g_f2f=(TKR.g_f2f)^-1;
+% bSwap = true; % Swap the frames because undoing large roll makes more practical sense
+% tmp   = phi1; phi1 = phi_init; phi_init=tmp; tmp = TKR.img0; TKR.img0(:)=TKR.img1(:); TKR.img1(:)=tmp(:);
+% TKR.g_f2f=(TKR.g_f2f)^-1;
 
 [epsilon,dX] = get_params();
 
@@ -85,7 +85,7 @@ function [xyF] = get_center( phi_in)
 end
 
 function [img_out] = showLS( nFig, img_in, phi_in,cval)
-
+% better to show as contour ?
 if nargin<4
   cval=1;
 end

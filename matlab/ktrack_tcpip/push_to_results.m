@@ -39,6 +39,10 @@ function results = push_to_results( results )
     if mod(iter,KOpts.showImages)==0
       sfigure(1); imshow( TKR.img_show ); 
     end
+    if mod(iter,KOpts.saveImages)==0
+      filename=sprintf('ktracker_%04d.png',iter); 
+      imwrite( uint8(255*TKR.img_show),filename ); fprintf([' wrote to: ', filename]);
+    end
     %sfigure(2); imagesc( [phi, psi] ); 
     % ... save 'em, but will it affect speed ?! 
   end

@@ -1,19 +1,19 @@
 function opts = getKtrackOpts( )
 
-%mode = 'NoCompNoU_LoC';
+mode = 'NoCompNoU_LoC';
 %mode = 'NoCompNoU_HiC';
 %mode = 'YesCompNoU';
-mode = 'YesCompNoU_Inc';
+%mode = 'YesCompNoU_Inc';
 
 saveRate = 0;
-showRate = 5;
+showRate = 1;
 
 b_incrementalWarp = false;
 
 if strcmp(mode,'NoCompNoU_LoC')
   b_compensateMotion = false(); %true();
   b_computeHorizon   = false();
-  C_iters             = 10; %7; % Iffy with 10, 5 fails badly
+  C_iters             = 10; 
   i_maxInputFrames    = 200;
 elseif strcmp(mode,'NoCompNoU_HiC')
   b_compensateMotion = false(); %true();
