@@ -133,13 +133,13 @@ end
 
 sfigure(1); clf;
 
-epsilon   = sqrt(2); %1.1;%0.8;
+epsilon   = sqrt(2)/2; %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
 x=linspace(-3,3,100);
 sfigure(1); plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); hold off;
-
+deltaSqrInt = trapz( x,delta(x).^2); title(sprintf('deltaSqrInt = %4.4f',deltaSqrInt) );
 
 
 tt = 0;
