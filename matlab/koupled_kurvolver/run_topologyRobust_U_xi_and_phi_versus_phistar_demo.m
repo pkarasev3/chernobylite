@@ -280,11 +280,11 @@ while( (steps < MaxSteps) )
   
   lamNum = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
   lamDen = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
-  L0     = 5; 
+  L0     = 1; 
   lambda = lamNum  / ( L0 + lamDen );
   
   
-  fprintf('max f_phi = %f, lambda = %f \n',max(abs(f1(:))),lambda);
+  fprintf('max f1 = %f, max f2 = %f, lambda = %f \n',max(abs(f1(:))),max(abs(f2(:))),lambda);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
   Dval        = eval_label_dist(psi1,phi2);
@@ -384,12 +384,6 @@ fprintf('result = %f \n',result);
     g_source   = delta(phi) .*g_alpha;
     dphi       = g_source;
     
-    % pseudo-hack to accelerate convergence
-    % dphi       = sign(dphi).*( abs(dphi).^(1/1) );  assert(sum(imag(dphi(:)))==0);
-    
-    %     fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
-    %       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
-    
     both_maxes = [max(abs(dphi(:)))]; % max of dphi and dpsi
     dt_a  = dt0 / max(both_maxes);
     
@@ -400,9 +394,6 @@ fprintf('result = %f \n',result);
     if( redist_iters > 0 )
       dX      = 1/sqrt(2);
       phiRD   = reinitializeLevelSetFunction(phi,1,dX,redist_iters,3,3,false() );
-      %Neps    = 4;
-      %wR      = Heavi( abs(phi) - epsilon - epsilon/Neps );
-      %phiRD   = wR.*phiRD + (1-wR).*phi;
       phi     = phiRD;
     end
     fprintf('');

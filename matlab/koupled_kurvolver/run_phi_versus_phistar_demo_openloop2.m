@@ -143,7 +143,7 @@ x=linspace(-1,1,100);
 %sfigure(1); subplot(2,1,2);  plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); hold off;
 
 
-
+% DEMO 2: some funkiness in the image!
 tt = 0;
 DistFunc = abs( (xx - size(img,2)/2) )+abs( (yy - size(img,1)/2) );
 DistFunc = 1 - DistFunc / max(abs(DistFunc(:))) + 0.05;
@@ -231,6 +231,7 @@ fprintf('result = %f \n',result);
     Dval = 0.5 * trapz(trapz( (Heavi(phiA)-Heavi(phiB)).^2 ) );
     
   end
+
                              
   function  [phi dt_a g_source] = update_phi( Img, phi, Coupling, ... 
                                                redist_iters)
@@ -257,7 +258,7 @@ fprintf('result = %f \n',result);
     dt_a  = 1 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     if( redist_iters > 0 )
       if( bUseLSM )
-        ghost_width  = 1; dX = 1/sqrt(2); spatial_order = 5; tvdrk_order = 3;
+        ghost_width  = 16; dX = 1/sqrt(2); spatial_order = 5; tvdrk_order = 3;
         levelset_rhs =  computeLevelSetEvolutionEqnRHS(-phi, {-dt_a*dphi}, ghost_width, dX, spatial_order );
         phi_rd       =  reinitializeLevelSetFunction(phi+dt0*levelset_rhs,1,dX,...
                              redist_iters,spatial_order,tvdrk_order,false() );

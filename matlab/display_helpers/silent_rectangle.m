@@ -1,4 +1,4 @@
-function img_out = silent_rectangle(cen, rad, img_in, color_nofig, W )
+function img_out = silent_rectangle(cen, rad, img_in, color_nofig )
 % cen: (i,j) , rad (i,j) , img_in (uint8!), 
 % color_nofig([256 100 0], W (width)
 % Draw box entirely on the image, not in a figure
@@ -6,7 +6,7 @@ function img_out = silent_rectangle(cen, rad, img_in, color_nofig, W )
 %          a) saved without displaying to screen (faster)
 %          b) displayed without figure grabbing focus via sfigure() , so
 %                user can multi-task while displaying
-
+    dbstop if error;
     if( ~exist( 'color_nofig','var') )
         color_nofig = [255, 0, 0];
     end
@@ -18,9 +18,8 @@ function img_out = silent_rectangle(cen, rad, img_in, color_nofig, W )
     img_g = img_in(:,:,2);
     img_b = img_in(:,:,3);
     img_out = zeros( size(img_in ) );
-    if( ~exist('W','var') )
-      W = 2; % line thickness
-    end
+    W = 2; % line thickness  (seems broken for W != 2 ... doh)
+        
     
     for k = 1:nc
         lefti = repmat( round(cen(1)-rad:cen(1)+rad), 1, W );

@@ -103,6 +103,9 @@ int main(int ac, char ** av)
   Mat im1 = imread(im1_name, CV_LOAD_IMAGE_GRAYSCALE);
   Mat im2 = imread(im2_name, CV_LOAD_IMAGE_GRAYSCALE);
 
+  imwrite( im1_name+"_gray.png", im1);
+  imwrite( im2_name+"_gray.png", im2);
+
   if (im1.empty() || im2.empty())
   {
     cerr << "could not open one of the images..." << endl;
@@ -161,7 +164,7 @@ int main(int ac, char ** av)
   
   Mat warped;
   warpPerspective(im2, warped, H, im1.size());
-  imwrite("warped.png",warped);
+  imwrite(av[3],warped);
   
   
   ofstream H_out("getMatchedHomography.m");

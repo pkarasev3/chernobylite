@@ -3,8 +3,9 @@ project(chernobylite)
 
 set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "The build type.")
 
-find_package( Boost COMPONENTS filesystem program_options thread )
+find_package( Boost COMPONENTS  system program_options thread filesystem )
 find_package( OpenCV REQUIRED )
+
 
 link_directories( ${Boost_LIBRARY_DIRS} )
 include_directories( ${Boost_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} )
@@ -16,7 +17,7 @@ set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 #set the default path for built libraries to the "lib" directory
 set(LIBRARY_OUTPUT_PATH ${CMAKE_BINARY_DIR}/lib)
 
-add_definitions("-Werror -fno-strict-aliasing -Wall -Wl,--no-undefined")
+add_definitions("-Wall -Wall -std=c++0x -D BOOST_HAS_RVALUE_REFS")
 include_directories(${chernobylite_SOURCE_DIR}/include)
 
 #put impl of all the helpers into library.

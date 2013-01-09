@@ -26,15 +26,16 @@ function [U h_out uk] = updateU( U, phi_star,phi,px,py,img, Umax)
       sub_iters = 5;
       smth      = fspecial('gaussian',[3 3],0.35);
       for iters = 1:sub_iters
-        Usmth   = imfilter(U,smth,'replicate');
-        [Ux Uy] = gradient( Usmth, dX); %, dX ); 
-        diffusionTermX        = ( (U/Umax).^2 .* Heavi( (U/Umax).^2 - 1 ).*Ux );% smth,'replicate');
-        diffusionTermY        = ( (U/Umax).^2 .* Heavi( (U/Umax).^2 - 1 ).*Uy );% smth,'replicate');
+        %Usmth   = imfilter(U,smth,'replicate');
+        Usmth   = U;
+        [Ux Uy] = gradient( Usmth, dX); %, dX ); % (U/Umax).^2
+        diffusionTermX        = (   Heavi( (U/Umax).^2 - 1 ).*Ux );% smth,'replicate');
+        diffusionTermY        = (   Heavi( (U/Umax).^2 - 1 ).*Uy );% smth,'replicate');
         [diffXX, diffXY]      = gradient(diffusionTermX,dX); %#ok<NASGU>
         [diffYX, diffYY]      = gradient(diffusionTermY,dX); %#ok<NASGU>
         %assert( norm(diffYX(:) - diffXY(:) ) < Umax*max([norm(diffYX(:)),norm(diffYX(:))]) );
        
-        dU    = dt*(diffXX + diffYY - 0.5*sign(Usmth).*(abs(Usmth)-abs(Umax)).*(abs(Usmth)>Umax)) + h_of_u;
+        dU    = dt*(diffXX + diffYY - 0.9*sign(Usmth).*(abs(Usmth)-abs(Umax)).*(abs(Usmth)>Umax)) + h_of_u;
         U     = U + dU;
         
         h_of_u = 0*h_of_u; % only done once

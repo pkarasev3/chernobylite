@@ -1,10 +1,21 @@
-function K = kappa(phi, p, dX)
+function [K dx dy dx2 dy2] = kappa(phi, p, dX)
   
-  if( nargin < 3 )
+  if( nargin == 2 && numel(p) == 1 )
+    dX=p;
+  elseif nargin == 2
     dX = 1.0;
+  end
+  use_all_idx = false;
+  if( nargin < 2 || numel(p) == 1 )
+      p = 1:numel(phi);
+      use_all_idx=true;
   end
   [rr cc] = ind2sub(size(phi), p);
 
+  % *** Performance Note: *** there is much repetition of computation here! Profiler result 
+  % indicates we waste massive time here doing safe_sub2ind(), when indices p are often constant 
+  % between calls to this function. 
+  
   % shift operations
   shiftD = @(M) M(safe_sub2ind(size(phi), rr-1, cc));
   shiftU = @(M) M(safe_sub2ind(size(phi), rr+1, cc));
@@ -32,6 +43,14 @@ function K = kappa(phi, p, dX)
   
   % Note: Poincare in L1, for phi with compact support, says:
   % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )
+  
+  if use_all_idx
+    K = reshape(K,size(phi));
+    dx=reshape(dx,size(phi));
+    dy=reshape(dy,size(phi));
+    dx2=reshape(dx2,size(phi));
+    dy2=reshape(dy2,size(phi));
+  end
   
 end
 
