@@ -44,7 +44,7 @@ for nDelay=1:3
   fy  = TKR.fy ;
   
   g_ctrl = expm( nDelay * wv_ctrl );
-  g_f2fb = g_ctrl^-1 * TKR.g_f2f;
+  g_f2fb = TKR.g_f2f * g_ctrl^-1; % g_k = gkd * gkC ; apply inverse of control on the right! 
   g_comp =  (g_f2fb^-1); % *
   uv     = g_comp * [ xx(:)'; yy(:)'; z0 * ones(1,numel(xx)); ones(1,numel(yy)) ];
   
