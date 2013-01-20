@@ -1,5 +1,7 @@
 function [K dx dy dx2 dy2] = kappa(phi, p, dX)
-  
+  if( nargin < 2 )
+    dX = 1.0;
+  end
   if( nargin == 2 && numel(p) == 1 )
     dX=p;
   elseif nargin == 2
@@ -15,23 +17,10 @@ function [K dx dy dx2 dy2] = kappa(phi, p, dX)
   % *** Performance Note: *** there is much repetition of computation here! Profiler result 
   % indicates we waste massive time here doing safe_sub2ind(), when indices p are often constant 
   % between calls to this function. 
-  
-  % shift operations
-  shiftD = @(M) M(safe_sub2ind(size(phi), rr-1, cc));
-  shiftU = @(M) M(safe_sub2ind(size(phi), rr+1, cc));
-  shiftR = @(M) M(safe_sub2ind(size(phi), rr,   cc-1));
-  shiftL = @(M) M(safe_sub2ind(size(phi), rr,   cc+1));
-  shiftUL = @(M) M(safe_sub2ind(size(phi), rr-1, cc-1));
-  shiftUR = @(M) M(safe_sub2ind(size(phi), rr-1, cc+1));
-  shiftDL = @(M) M(safe_sub2ind(size(phi), rr+1, cc-1));
-  shiftDR = @(M) M(safe_sub2ind(size(phi), rr+1, cc+1));
-
-  % derivative operations
-  Dx  = @(M) (shiftL(M) - shiftR(M))/(2*dX);
-  Dy  = @(M) (shiftU(M) - shiftD(M))/(2*dX);
-  Dxx = @(M) (shiftL(M) - 2*M(p) + shiftR(M))/(dX^2);
-  Dyy = @(M) (shiftU(M) - 2*M(p) + shiftD(M))/(dX^2);
-  Dxy = @(M) (shiftUL(M) + shiftDR(M) - shiftUR(M) - shiftDL(M))/(4*dX^2);
+  if ~exist('Dxx','var')
+    kappa_helper; 
+    assert( 0<exist('Dy','var') );
+  end
   
   % derivatives
   dx  = Dx(phi);  dy  = Dy(phi);
@@ -45,6 +34,7 @@ function [K dx dy dx2 dy2] = kappa(phi, p, dX)
   % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )
   
   if use_all_idx
+    
     K = reshape(K,size(phi));
     dx=reshape(dx,size(phi));
     dy=reshape(dy,size(phi));
@@ -53,6 +43,7 @@ function [K dx dy dx2 dy2] = kappa(phi, p, dX)
   end
   
 end
+
 
 function ind = safe_sub2ind(sz, rr, cc)
   rr(rr < 1) = 1;
