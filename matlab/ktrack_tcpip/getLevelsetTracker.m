@@ -40,6 +40,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)];
   tkr.g_f2f    = eye(4,4);
   tkr.g_ctrl   = eye(4,4);
+  tkr.g_k_d    = eye(4,4);
   tkr.f        = 500.0;
   
   tkr.psi      = tkr.phi;
@@ -279,9 +280,8 @@ function  tkr = getLevelsetTracker( params )
     yaw_and_pitch(yaw_and_pitch> 0.25)= 0.25;
     w_ctrl(1:2) = yaw_and_pitch*pi/180;
     
-    g_ctrl       = expm([ [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
-    
     tauDelay     = TKR.curr_Nframe - TKR.prev_Nframe;
+    g_ctrl       = expm([ tauDelay * [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
     w_f2f_hat    = w_f2f- tauDelay * w_ctrl;
     fprintf( 'Ndelay=%02d, wx=%4.4f, wy=%4.4f, wz=%4.4f \n',tauDelay,...
                                                             w_f2f_hat(1),...
@@ -301,7 +301,9 @@ function  tkr = getLevelsetTracker( params )
     v0 = yy;
     
     TKR.g_ctrl = g_ctrl;
-    g_f2fb = g_ctrl^-1 * g_f2f;
+    g_f2fb = expm(  real(logm( TKR.g_f2f ) - logm( TKR.g_ctrl ) ) );
+    TKR.g_k_d = g_f2fb;
+    
     g_comp =  (g_f2fb^-1); % *
     uv     = g_comp * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
     
