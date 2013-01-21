@@ -118,7 +118,7 @@ function  tkr = getLevelsetTracker( params )
     [mu_i, mu_o]  = compute_means(Img,phi);
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
 
-    [kappa_phi, dx, dy] = kappa( phi, dX );
+    [kappa_phi, dx, dy] = kappa( phi );
     if KOpts.incremental_warp
       Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6);
       Ny = -dy ./ sqrt(dx.^2+dy.^2+1e-6);

@@ -9,7 +9,9 @@ function results = push_to_results( results )
                      'estm_xy',[],...  % tracker result
                      'D_ls_err',[],... % D, error between levelsets phi,psi
                      'nFrame_in',[],... % source iters, best case equal to tracker iter
-                     'ang_diff',[]);
+                     'ang_diff',[],...
+                     'w_f2f',{},...
+                     'w_ctrl',{});
     return;
   end
 
@@ -34,6 +36,8 @@ function results = push_to_results( results )
   results.estm_xy   = [results.estm_xy; xyF(:)'];
   results.D_ls_err  = [results.D_ls_err; D_err];
   results.nFrame_in = [results.nFrame_in; Nframe];
+  results.w_f2f     = [results.w_f2f, TKR.w_f2f];
+  results.w_ctrl    = [results.w_ctrl, TKR.w_ctrl];
   
   if 0 < KOpts.showImages
     if mod(iter,KOpts.showImages)==0
