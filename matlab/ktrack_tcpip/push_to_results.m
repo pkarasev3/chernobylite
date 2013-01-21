@@ -5,13 +5,15 @@ function results = push_to_results( results )
   
   if isempty(results)
     fprintf('first round, returning empty resluts!\n');
-    results = struct('true_xy',[],...  % received target centroid hint
-                     'estm_xy',[],...  % tracker result
-                     'D_ls_err',[],... % D, error between levelsets phi,psi
-                     'nFrame_in',[],... % source iters, best case equal to tracker iter
-                     'ang_diff',[],...
-                     'w_f2f',{},...
-                     'w_ctrl',{});
+    results = struct('true_xy',[TKR.true_xy(:)'],...  % received target centroid hint
+                     'estm_xy',[TKR.true_xy(:)'],...  % tracker result
+                     'D_ls_err',[0],... % D, error between levelsets phi,psi
+                     'nFrame_in',[TKR.curr_Nframe],... % source iters, best case equal to tracker iter
+                     'ang_diff',[0],...
+                     'g_f2f',zeros(4,4,KOpts.max_input_frames),...
+                     'g_ctrl',zeros(4,4,KOpts.max_input_frames) );
+    results.g_f2f(:,:,1)=eye(4,4);% [results.g_f2f, eye(4,4)];
+    results.g_ctrl(:,:,1)=eye(4,4);%    = [results.g_ctrl, eye(4,4)];
     return;
   end
 
@@ -36,8 +38,8 @@ function results = push_to_results( results )
   results.estm_xy   = [results.estm_xy; xyF(:)'];
   results.D_ls_err  = [results.D_ls_err; D_err];
   results.nFrame_in = [results.nFrame_in; Nframe];
-  results.w_f2f     = [results.w_f2f, TKR.w_f2f];
-  results.w_ctrl    = [results.w_ctrl, TKR.w_ctrl];
+  results.g_f2f(:,:,iter+1)     = TKR.g_f2f;%[results.g_f2f, TKR.g_f2f];
+  results.g_ctrl(:,:,iter+1)    = TKR.g_ctrl;%[results.g_ctrl, TKR.g_ctrl];
   
   if 0 < KOpts.showImages
     if mod(iter,KOpts.showImages)==0
