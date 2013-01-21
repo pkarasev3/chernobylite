@@ -14,7 +14,7 @@ global Xord;
 global bSaveVerbose;
 global Lambda1;
 global ImgScale;
-Tord = 2; 
+Tord = 1; 
 Xord = 2;
 bSaveVerbose = false();
 if nargin==0
@@ -263,7 +263,7 @@ Fval_all        = [Fval];
 Norm_U_all      = [0.5];
 Norm_du_all     = [0.0];
 lambda_all      = [0.0];
-poincare_all    = [0.0];
+poincare_all    = [1.0];
 mean_i_all      = [0.0];
 mean_o_all      = [0.0];
 deltasqr_vol_all= sqrt([trapz(trapz((delta(psi1)).^2))]);
@@ -291,7 +291,7 @@ kappa_phi=0*G;
 while( (steps < MaxSteps) )
   
   % Generate and accumulate user inputs
-  num_inputs = 4;
+  num_inputs = 3;
   if( steps > 180 )
     num_inputs = 1;
     %lambda          =  (Gmax + 1);
@@ -343,7 +343,7 @@ while( (steps < MaxSteps) )
   L1     = 1;
  % lambda = 0*L1 * lamNum  / ( L0 + lamDen );
   alphaDgain = Lambda1 * Gmax; % sweep: .005, 0.01, 0.02, 0.04  (200,100,50,25 Dval limits)
-  rvalEst    = 1.05;
+  rvalEst    = 1.1;
   lambda = L0 + rvalEst * alphaDgain * Dval;
   lambda_all = [lambda_all, lambda];
   
@@ -355,6 +355,7 @@ while( (steps < MaxSteps) )
   
   pCgradTerm = trapz(trapz( sqrt(dx2 + dy2) ) );
   pCfuncTerm = trapz(trapz( abs( argKappa ) ) ) ;
+  c          = find ( abs(phi2)<=epsilon );
   poincare_r = pCfuncTerm  /  pCgradTerm;
   poincare_all= [poincare_all, poincare_r];
   
@@ -440,11 +441,11 @@ fprintf('result = %f \n',result);
   function res = save_all( )
     fprintf('done! saving .... \n');
     save run_whole_shebang_demo t_all Fval_all rho_argin...
-      phi2_init phi2_mid img_show_mid Lambda1 rvalEst ...
+      phi2_init phi2_mid img_show_mid ...
       img_show_init psi1 phi2 lambda_all img img_show U poincare_all ...
       eU Umax alphaPsi tt  steps Dval_all Norm_du_all Norm_U_all
-    setenv('rhoval',[strtitle '_' num2str(Lambda1)])
-    !cp -v run_whole_shebang_demo.mat  "phantom_demo_Lambda1=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
+    setenv('Lval',[strtitle '_' num2str(Lambda1)])
+    !cp -v run_whole_shebang_demo.mat  "phantom_demo_lambda1=${Lval}_`date +%d%b%Y-%H-%M`.mat"
     res = 1;
   end
   function c = eval_label_dist( phiA, phiB, W )
