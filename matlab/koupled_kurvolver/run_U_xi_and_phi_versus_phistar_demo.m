@@ -12,6 +12,8 @@ global control_is_on;
 global Tord;
 global Xord;
 global bSaveVerbose;
+global Lambda1;
+global ImgScale;
 Tord = 1; 
 Xord = 2;
 bSaveVerbose = false();
@@ -19,6 +21,8 @@ if nargin==0
   control_is_on = true;
 else
   control_is_on = params(1);
+  Lambda1       = params(2);
+  ImgScale       = params(3);
 end
 
 %[Dval_alla t_alla] = run_core( sqrt(1/(2)) , dt_init);
@@ -176,6 +180,8 @@ global control_is_on;
 global Tord;
 global Xord;
 global bSaveVerbose;
+global Lambda1;
+global ImgScale;
 dbstop if error;
 addpath('~/source/chernobylite/matlab/util/');
 addpath('~/source/chernobylite/matlab/display_helpers/');
@@ -184,7 +190,7 @@ addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
 [img phi_star phi2 strtitle] = get_img_phantom_bridge(); %get_img_phantom_split(); 
 %[img phi_star phi2 strtitle]  = get_img_phantom_white();
-
+img = img * ImgScale;
 control_on = control_is_on;
 if( ~control_on )
   strtitle = [strtitle '_OpenLoop']; fprintf('***** x_x ');
@@ -200,6 +206,7 @@ sfigure(1); clf;
 epsilon   = sqrt(2)*sqrt(2)*sqrt(2); %1.1;%0.8;
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+deltaPrime= @(z)  ( pi/(2*epsilon^2)).*(-sin(pi*z/epsilon) ) ;
 
 % the cost of overlap that we want to shrink
 overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );
@@ -208,8 +215,9 @@ overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );
 gap_pointwise_cost  = @(p1,p2,qE)  ( (Heavi(p1+qE) - Heavi(p1)).*(1-Heavi(p2)) ).^2;
 emptygap            = @(p1,p2,qE)  trapz(trapz(  gap_pointwise_cost(p1,p2,qE) ) );
 
-x=linspace(-1,1,100);
-sfigure(1); subplot(2,1,2);  plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); hold off;
+x=linspace(-epsilon*1.25,epsilon*1.25,1000);
+sfigure(1); subplot(2,1,2);  
+plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); plot(x,deltaPrime(x),'g--'); hold off;
 
 
 
@@ -231,8 +239,7 @@ phi2_init     = 0 * img;
 phi2_mid      = 0 * img;
 
 lambda     = 0.1*mean(abs(img(:)))^2;
-kappa_phi  = 0*psi1;
-kappa_psi  = 0*psi1;
+kappa_eu  = 0*psi1;
 kappa_xi   = 0*psi1;
 delta_rel1 = [1];
 delta_rel2 = [1];
@@ -247,14 +254,16 @@ tsum            = 0;
 U               = 0 * psi1;
 eps_u           = 1e-1;
 steps           = 0;
-MaxSteps        = 600;
+MaxSteps        = 500;
 psi1            = imfilter(phi2,fspecial('gaussian',[5,5],2),'replicate'); % with observer, we start out equal ... no "ground truth"
 Dval            = eval_label_dist(psi1,phi2);
+Fval            = eval_label_dist(psi1,U,U);
 Dval_all        = [Dval];
-Fval_all        = [0.5];
+Fval_all        = [Fval];
 Norm_U_all      = [0.5];
 Norm_du_all     = [0.0];
 lambda_all      = [0.0];
+poincare_all    = [1.0];
 mean_i_all      = [0.0];
 mean_o_all      = [0.0];
 deltasqr_vol_all= sqrt([trapz(trapz((delta(psi1)).^2))]);
@@ -282,7 +291,7 @@ kappa_phi=0*G;
 while( (steps < MaxSteps) )
   
   % Generate and accumulate user inputs
-  num_inputs = 5;
+  num_inputs = 3;
   if( steps > 180 )
     num_inputs = 1;
     %lambda          =  (Gmax + 1);
@@ -328,37 +337,53 @@ while( (steps < MaxSteps) )
   xi                   = Heavi(phi2)-Heavi(psi1);
   eU                   = Heavi(psi1)-Heavi(U);
   
-  lamNum = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
-  lamDen = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
+ % lamNum = (trapz(trapz(delta(phi2).^2 .* G.^2 )))^(1/2);
+  %lamDen = (trapz(trapz(delta(phi2).^2 .* abs(xi) )))^(1/2);
   L0     = 1; 
   L1     = 1;
-  lambda = L1 * lamNum  / ( L0 + lamDen );
-  alphaDgain = 0.1; % Replicate this for the other alpha with eU error ...
-  lambda = lambda + alphaDgain * Dval;
+ % lambda = 0*L1 * lamNum  / ( L0 + lamDen );
+  alphaDgain = Lambda1 * Gmax; % sweep: .005, 0.01, 0.02, 0.04  (200,100,50,25 Dval limits)
+  rvalEst    = 1.1;
+  lambda = L0 + rvalEst * alphaDgain * Dval;
   lambda_all = [lambda_all, lambda];
   
   % Update phi
   f1                      = -(U.^2).*(xi);
-  kappa_phi(1:numel(phi2)) = kappa(phi2,1:numel(phi2));
-  kappa_xi(:)          = kappa(delta(phi2).^2 .* xi,1:numel(xi(:))); %#ok<NASGU>
+  % dont need it! [kappa_phi(1:numel(phi2))] = kappa(phi2);
+  argKappa = delta(phi2).^2 .* xi;
+  [kappa_xi(:) , ~, ~, dx2, dy2 ]          = kappa(argKappa); %#ok<NASGU>
+  
+  pCgradTerm = trapz(trapz( sqrt(dx2 + dy2) ) );
+  pCfuncTerm = trapz(trapz( abs( argKappa ) ) ) ;
+  c          = find ( abs(phi2)<=epsilon );
+  poincare_r = pCfuncTerm  /  pCgradTerm;
+  poincare_all= [poincare_all, poincare_r];
+  
   f2                   = lambda * (kappa_xi);
   f_phi                = f1 + f2;     assert( sum(isnan(f_phi(:))) == 0 );
-  if( ~control_on )
-    lambda0 = 2;
-    f_phi = 0*f_phi + lambda0 * kappa_phi;
-    lambda=L1;
-  end
+%   if( ~control_on )
+%     lambda0 = 2;
+%     f_phi = 0*f_phi + lambda0 * kappa_phi;
+%     lambda=L1;
+%   end
   
-  redist_iters         = 2;
-  phi2_prev            = phi2;
+  redist_iters          = 2;
+  phi2_prev             = phi2;
   [psi1 phi2 tb1 dphi G]= update_phi( img, psi1, phi2, 0*psi1, f_phi, redist_iters );
-    
+  Dval                  = eval_label_dist(psi1,phi2);  
+  
+  
   % Update psi
-  psi_iters = 2;
+  psi_iters = 1;
   for mp=1:psi_iters
     xi                     = Heavi(phi2)-Heavi(psi1);
     eU                     = Heavi(psi1)-Heavi(U);
-    g1                     = 0.7 * xi;
+   
+    %kappa_psi(1:numel(phi2)) = kappa(phi2,1:numel(phi2));
+   % kappa_eu(:)            = kappa(delta(psi1).^2 .* eU,1:numel(eU(:))); %#ok<NASGU>
+    
+  %  lambda2                = Fval * Lambda2
+    g1                     = 1.0 * xi;% + lambda2 * kappa_eu;
     %alphaPsi              = 0.5 / Umax;  % D(t) to zero  F bounded
     alphaPsi               = 1.0 / Umax;  % F(t) to zero, D bounded
 
@@ -376,7 +401,7 @@ while( (steps < MaxSteps) )
   %H_U = Heavi(U.^2-epsilon);
   
   % % % % Evaluate whether we're really shrinking D(\phi,\phi^*) % % % %
-  Dval        = eval_label_dist(psi1,phi2);
+  
   Fval        = eval_label_dist(psi1,U,alphaPsi*U);
   Fval_all    = [Fval_all, (Fval)];
   Norm_U_all  = [Norm_U_all,  sqrt( trapz(trapz( U.^2 ) ) )];
@@ -387,14 +412,14 @@ while( (steps < MaxSteps) )
   
   xi                   = Heavi(phi2)-Heavi(psi1);
   eU                   = Heavi(psi1)-Heavi(U);
-  Fhat       = trapz(trapz( delta(psi1).^2 .* (alphaPsi*U).^2 ...
-    .* eU.^2 ) );
-  FprimeLHS  = trapz(trapz( delta(psi1).^2 .* U.^2 ...
-    .* xi .* eU ) );
-  FprimeRHS  = trapz(trapz( delta(psi1).^2 .* U.^2 ...
-    .* eU.^2 .* (alphaPsi*U).^2 ) );
-  fprintf('\nDval = %g ,  Fval = %g ,  Fp_lhs = %g ,  Fp_rhs = %g, Fhat = %g \n',...
-    Dval, Fval, FprimeLHS, FprimeRHS, Fhat );
+%   Fhat       = trapz(trapz( delta(psi1).^2 .* (alphaPsi*U).^2 ...
+%     .* eU.^2 ) );
+%   FprimeLHS  = trapz(trapz( delta(psi1).^2 .* U.^2 ...
+%     .* xi .* eU ) );
+%   FprimeRHS  = trapz(trapz( delta(psi1).^2 .* U.^2 ...
+%     .* eU.^2 .* (alphaPsi*U).^2 ) );
+  fprintf('\nDval = %g ,  Fval = %g ,  rval = %g \n',...
+    Dval, Fval, poincare_r );
   
   tt         = tt + tb;
   tsum       = tsum + tb;
@@ -417,10 +442,10 @@ fprintf('result = %f \n',result);
     fprintf('done! saving .... \n');
     save run_whole_shebang_demo t_all Fval_all rho_argin...
       phi2_init phi2_mid img_show_mid ...
-      img_show_init psi1 phi2 lambda_all img img_show U ...
+      img_show_init psi1 phi2 lambda_all img img_show U poincare_all ...
       eU Umax alphaPsi tt  steps Dval_all Norm_du_all Norm_U_all
-    setenv('rhoval',[strtitle '_' num2str(rho_argin)])
-    !cp -v run_whole_shebang_demo.mat  "phantom_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
+    setenv('Lval',[strtitle '_' num2str(Lambda1)])
+    !cp -v run_whole_shebang_demo.mat  "phantom_demo_lambda1=${Lval}_`date +%d%b%Y-%H-%M`.mat"
     res = 1;
   end
   function c = eval_label_dist( phiA, phiB, W )
@@ -503,22 +528,25 @@ fprintf('result = %f \n',result);
     plot( t_all,Dval_all,'r+' ); hold on;
     plot( t_all,Fval_all,'g+');
     plot( t_all,lambda_all,'m--');
+    plot( t_all,poincare_all,'k-s');
     hold off;
-    legend('D(\phi,\psi)','F(\psi,U)','\lambda(t)'); % '||\delta(\phi)||_{L2}',
+    legend('D(\phi,\psi)','F(\psi,U)','\lambda(t)','Int. ratio func/grad'); % '||\delta(\phi)||_{L2}',
     xlabel('time (sec)');
-    title('error signals ');
+    title('error signals '); grid on;
     sh2=sfigure(2,1.25,2.2);
     subplot(2,1,1);
     
     plot( t_all,Norm_du_all,'b-.'); hold on;
-    plot( t_all,Fval_all,'g--');  hold off;
+    plot( t_all,Fval_all,'g--');  hold off; grid on;
     %legend('||U||_{L2}','F(t)');
     xlabel('time (sec)');
     title('U_t norm and F(t)');
-    sfigure(2);  subplot(2,1,2);
-    mesh( U ); %axis([1 256 1 256 -mean(U(:)) mean(U(:))]);
-    title(sprintf('U(x,t); U_{max} := %g, test max = %g',Umax,max(abs(U(:)))));
-    xlabel('x'); ylabel('y');
+    if( (steps == MaxSteps) ||  mod(steps,5)==0 )
+      sfigure(2);  subplot(2,1,2);
+      mesh( U ); %axis([1 256 1 256 -mean(U(:)) mean(U(:))]);
+      title(sprintf('U(x,t); U_{max} := %g, test max = %g',Umax,max(abs(U(:)))));
+      xlabel('x'); ylabel('y');
+    end
     
     if( steps == 10 )
       phi2_init = phi2;
