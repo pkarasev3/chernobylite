@@ -45,7 +45,7 @@ sfigure(1); clf;
 
 epsilon   = sqrt(2);
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
-delta     = @(z)  1 * (z == 0) + (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
+delta     = @(z)   (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0);
 
 % the cost of overlap that we want to shrink
 overlap   = @(p1,p2) trapz(trapz( (Heavi(p1*1e2).*Heavi(p2*1e2)).^2 ) );

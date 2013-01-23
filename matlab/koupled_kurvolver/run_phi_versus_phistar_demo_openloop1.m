@@ -75,7 +75,7 @@ addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LevelSetMethods/');
 addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
-img      = phantom(); 
+img      = phantom();  idx_border = find(img==0);
 img(img==0) = 0.1;
 [star_i star_j] = find( ( (img < 1e-1) - (img == 0) ) > 1e-3  );
 keep_idx  = find( star_j < 128 );
@@ -90,8 +90,11 @@ img(142:160,118:147) =  img(150,124); % Make a 'bridge' connecting the two chunk
 bridge_weight = min( 0.5+0*bx, max(max( abs(bx), abs(by) ),0*bx) );
 img(142:160,118:147) = img(142:160,118:147).*(1-bridge_weight) + before_bridge.*(bridge_weight);
 
+
+
 img = img + (randn(size(img))*5e-2); 
 img = abs(img+0.1).^(1.5);
+
 img(img>1)=1; 
 
 [m n] = size(img);
@@ -144,11 +147,14 @@ deltaSqrInt = trapz( x,delta(x).^2); title(sprintf('deltaSqrInt = %4.4f',deltaSq
 
 tt = 0;
 % DEMO 1:  Just bridge, original image
+
 img  = img - mean(img(:));
-img  = imfilter( 255*img, fspecial('gaussian',[5 5],0.0625),'replicate');
+img(img<0) = img(img<0)*3;
+img  = imfilter( 100*img, fspecial('gaussian',[5 5],0.1),'replicate');
+img(idx_border) = 0.25*max(img(:))+0.75*img(idx_border);
 img0 = img-min(img(:)); 
 img0 = img0/max(img0(:)); 
-
+imagesc(img0);
 img_show_mid  = img * 0;
 img_show_init = img * 0;
 phi2_init     = 0 * img;
@@ -173,13 +179,13 @@ Dval_all        = [Dval];
 
 
 Gmax            = (max(img(:))-min(img(:))).^2; % maximum the G(\phi,I) term can ever be
-lambda          = 0.03 * Gmax;
+lambda          = 0.05 * Gmax;
 dt0             = dt_init;
 MaxTime         = 2.0;
 
 imgFunc_all     = [MeansCost(img,phi2,lambda,Heavi)];
 
-while( (tt < MaxTime) && (steps < MaxSteps) )
+while( (steps < MaxSteps) )
 
   phi1                 = phi_star;
   
@@ -204,7 +210,8 @@ fprintf('result = %f \n',result);
   function res = save_all( )
     fprintf('done! saving .... \n');
     save run_openloop_bridge_demo t_all ... 
-                          imgFunc_all   phi2_init phi2_mid img_show_mid img_show_init phi1 phi2 img img_show  tt xx yy  steps Dval_all 
+                          imgFunc_all   phi2_init phi2_mid img_show_mid ... 
+                          img_show_init phi1 phi2 img img_show  tt xx yy  steps Dval_all 
     setenv('rhoval',num2str(rho_argin))
     !cp -v run_openloop_bridge_demo.mat  "bridge_demo_rho=${rhoval}_`date +%d%b%Y-%H-%M`.mat"
     res = 1;                               
@@ -271,7 +278,7 @@ fprintf('result = %f \n',result);
     imwrite(img_show,['openloop_bridge_demo_' num2str_fixed_width(steps) '.png']);
    
    
-    sfigure(2); plot(t_all,imgFunc_all-imgFunc_all(1),'m-.'); xlabel('time'); ylabel('image functional');
+    sfigure(2); plot(t_all,imgFunc_all,'m-.'); xlabel('time'); ylabel('image functional');
     
   
     if( steps == 10 )

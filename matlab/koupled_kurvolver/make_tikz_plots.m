@@ -37,8 +37,8 @@ Dfinal=mean(Dval_all(end-5:end))
 
 load run_openloop_bridge_demo.mat
 sfigure(3); t_all = linspace(0,1,numel(t_all));
-plot( t_all, imgFunc_all-imgFunc_all(1), 'm.', 'LineWidth', 2);
-legend('E(t)-E(0)'); 
+plot( t_all, imgFunc_all, 'm.', 'LineWidth', 2);
+legend('E(t)'); 
 xlabel('time (scaled)'); ylabel('functional value'); grid on; pause(0.1);
 matlab2tikz( 'imgFunc_OpenLoop.tikz', 'height', '3.5cm', 'width', '80mm');
 !cp -vu imgFunc_OpenLoop.tikz  ~/source/visioncontrol/kslice-TAC/
