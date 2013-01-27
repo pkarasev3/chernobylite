@@ -1,4 +1,4 @@
-function debugSolve_gkC( )
+function [wA wB wF wX data] = debugSolve_gkC( )
 
 dbstop if error
 
@@ -10,7 +10,11 @@ fprintf('\n');
 sfigure(1); clf; hold on;
 r.nFrame_in = [0;r.nFrame_in];
 r.estm_xy   = [r.estm_xy(1,:); r.estm_xy(:,:)]; % g_ctrl was from *previous* centroid
-wA = []; wB = []; wF = [];
+wA = [];  % fixed K * centroid
+wB = [];  % read back from saved
+wF = [];  % frame to frame
+wX = [];  % newish method
+
 for m = 1:numel(r.ang_diff)
   
   g_f2f  = r.g_f2f(:,:,m);
@@ -35,32 +39,37 @@ for m = 1:numel(r.ang_diff)
   
   wA = [wA, w_ctrlA(:)]; wB = [wB, w_ctrlB(:)]; wF = [wF, w_f2f(:)];
   
-  F = w_f2f(:)'
-  A = w_ctrlA(:)'
-  B = w_ctrlB(:)'
-  
-  fprintf(''); pause(0.001);
+ % fprintf(''); pause(0.001);
   
   
 
-  wMax    = tauDelay * [0.5;0.5];
-  w_f2fin = w_f2f(1:2);
-  xydirin = [tx;ty] ./ sqrt(1e-9+tx.^2+ty.^2);
+  wMax    =  tauDelay * [0.25;0.25] * 1/(180/pi);
+  w_f2fin =  w_f2f(1:2);
+  xydirin =  [tx;ty] ./ sqrt(1e-15+tx.^2+ty.^2);
   
-  opts    = optimset('Display','iter-detailed','MaxFunEvals',10^3,....
-                     'Algorithm','interior-point','TolFun',1e-5,'TolX',1e-5);
+  opts    = optimset('Display','final','MaxFunEvals',10^3,.... %'iter-detailed'
+                     'Algorithm','active-set','TolFun',1e-8,'TolX',1e-8);
   [x,fval,exitflag,output,lambda]= ...
-                fmincon(@wcost,w_f2fin*0.9,[],[],[],[],-wMax,wMax,@wcon,opts); 
+                fmincon(@wcost,0.9*w_f2fin(1:2),[],[],[],[],-wMax,wMax,@wcon,opts); 
   cin = wcon(x); 
-  assert( cin < 0 || ( norm(w_f2fin) < 1e-6)  );
-  res = [x(:)',cin]
+ %   assert( max(cin) <= 1e-5 || ( norm(w_f2fin) < 1e-6)  );
+  w_ctrlX = [x(:)',0];
+  wX = [wX, w_ctrlX(:)];
+  
+  
+  F = w_f2f(:)'
+  A = w_ctrlA(:)'
+  B = w_ctrlB(:)'
+  X = [x(:)', 0]
+  
   fprintf('');
-              
+  
 end
 hold off;
 sfigure(1); clf; 
 plot( wA(1,:),'r--x'); hold on; plot( wF(1,:), 'k--s'); plot( wB(1,:), 'b--o');
-plot( wA(2,:),'r-x'); hold on; plot( wF(2,:), 'k-s'); plot( wB(2,:), 'b-o'); hold off;
+plot( wA(2,:),'r-x'); hold on; plot( wF(2,:), 'k-s'); plot( wB(2,:), 'b-o'); 
+plot( wX(1,:),'m--*'); plot( wX(2,:), 'm-s'); hold off;
 
 
 % Better solution:  
@@ -73,26 +82,31 @@ plot( wA(2,:),'r-x'); hold on; plot( wF(2,:), 'k-s'); plot( wB(2,:), 'b-o'); hol
 
                                                     %#ok<ASGLU>
   
-    
+  % This configuration works; insert it to run on the fly!   
   fprintf('');  
 
   function E = wcost( x )
     
     w_ctrl = x(:);
     w_k_d  = w_f2fin(:) - w_ctrl; % tauDelay removed... already applied it at init
-    E      = sqrt( sum(w_k_d.^2) );
+    E      = ( sum( (w_k_d).^2) );
     
   end
 
   function [cin,ceq] = wcon(x)
     w_ctrl = x(:);
-    xydir_w= [w_ctrl(2);w_ctrl(1)]/sqrt(1e-9+sum(w_ctrl(1:2).^2));
     
-  % Handled by ub,lb! not a nonlinear constraint.  a      = abs(w_ctrl)-wMax*tauDelay;
-  
-    cin    = -( (xydir_w'*xydirin)+0.99)*norm(xydir_w,2);  % want <w1,w2> damn close to 1 (colinear)
-    
+    if ( min( [ sum(abs(xydirin)), sum(abs(w_ctrl))] ) < 1e-9 )
+      cin  = [0];%;0;0];
+    else
+      xydir_w= [w_ctrl(2);w_ctrl(1)]/sqrt(sum(w_ctrl(1:2).^2));  
+      % want <w1,w2> damn close to 1 (colinear)
+      cin    = [-((xydir_w'*xydirin)-0.95) ];
+%                  -w_ctrl(2) * ty;
+%                  -w_ctrl(1) * tx];
+      
                       %cin(x) <= 0
+    end
     ceq    = [];      %ceq(x) == 0
   end
 
