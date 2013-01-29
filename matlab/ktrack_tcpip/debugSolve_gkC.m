@@ -3,9 +3,9 @@ function [wA wB wF wX data] = debugSolve_gkC( )
 dbstop if error
 
 % W1C1 is harder to interpret ...
-data=load('gctrlResults_W1C1.mat'); TKR=data.TKR; KOpts=data.KOpts; r=data.results;
+%data=load('gctrlResults_W1C1.mat'); TKR=data.TKR; KOpts=data.KOpts; r=data.results;
 
-%data=load('gctrlResults_W0C1.mat'); TKR=data.TKR; KOpts=data.KOpts; r=data.results;
+data=load('gctrlResults_X_W1C1.mat'); TKR=data.TKR; KOpts=data.KOpts; r=data.results;
 fprintf('\n');
 sfigure(1); clf; hold on;
 r.nFrame_in = [0;r.nFrame_in];
@@ -50,7 +50,7 @@ for m = 1:numel(r.ang_diff)
   opts    = optimset('Display','final','MaxFunEvals',10^3,.... %'iter-detailed'
                      'Algorithm','active-set','TolFun',1e-8,'TolX',1e-8);
   [x,fval,exitflag,output,lambda]= ...
-                fmincon(@wcost,0.9*w_f2fin(1:2),[],[],[],[],-wMax,wMax,@wcon,opts); 
+                fmincon(@wcost,0.5*w_ctrlA(1:2),[],[],[],[],-wMax,wMax,@wcon,opts); 
   cin = wcon(x); 
  %   assert( max(cin) <= 1e-5 || ( norm(w_f2fin) < 1e-6)  );
   w_ctrlX = [x(:)',0];
@@ -66,11 +66,20 @@ for m = 1:numel(r.ang_diff)
   
 end
 hold off;
-sfigure(1); clf; 
-plot( wA(1,:),'r--x'); hold on; plot( wF(1,:), 'k--s'); plot( wB(1,:), 'b--o');
-plot( wA(2,:),'r-x'); hold on; plot( wF(2,:), 'k-s'); plot( wB(2,:), 'b-o'); 
-plot( wX(1,:),'m--*'); plot( wX(2,:), 'm-s'); hold off;
 
+%plot( wA(1,:),'r--x'); hold on; %plot( wF(1,:), 'k--s'); plot( wB(1,:), 'b--o');
+%plot( wA(2,:),'r-x'); hold on; 
+%plot( wF(2,:), 'k-s'); %plot( wB(2,:), 'b-o'); 
+%plot( wX(1,:),'m--*'); 
+%plot( wX(2,:), 'm-s'); hold off;
+for fn=1:2
+sfigure(fn); clf; 
+plot(wF(fn,:),'r-s'); hold on; 
+plot(wA(fn,:),'k--s'); plot( wX(fn,:),'b-o'); 
+hold off; legend('f2f measured','linear model','Solved');
+end
+ex=norm( wX - wF ,'fro' )
+ea=norm( wA - wF ,'fro' )
 
 % Better solution:  
 %                     minimize   norm(w_k_d), 
@@ -89,7 +98,7 @@ plot( wX(1,:),'m--*'); plot( wX(2,:), 'm-s'); hold off;
     
     w_ctrl = x(:);
     w_k_d  = w_f2fin(:) - w_ctrl; % tauDelay removed... already applied it at init
-    E      = ( sum( (w_k_d).^2) );
+    E      = ( sum( abs(w_k_d).^2 ) );
     
   end
 

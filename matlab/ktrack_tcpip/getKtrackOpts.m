@@ -4,8 +4,9 @@ function opts = getKtrackOpts( )
 %mode = 'NoCompNoU_HiC';
 mode  = 'YesCompNoU';
 
+gkC_smart = 1; %1 for use model of g_ctrl 
 
-saveRate = 0;
+saveRate = 1;
 showRate = 1;
 
 b_incrementalWarp = false;
@@ -50,7 +51,8 @@ opts = struct('output_port',5001,'number_of_retries',10,...
     'saveImages',saveRate,...
     'showImages',showRate,...
     'result_filename',res_fname,...
-    'incremental_warp',b_incrementalWarp);
+    'incremental_warp',b_incrementalWarp,...
+    'gkC_smart',gkC_smart);
   
 disp(opts);
 

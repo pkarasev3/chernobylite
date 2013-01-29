@@ -22,8 +22,8 @@ function results = push_to_results( results )
   Nframe      = TKR.curr_Nframe;
   
   % restrict these to an roi...
-  phi     = TKR.phi(TKR.yroi,TKR.xroi);
-  psi     = TKR.psi(TKR.yroi,TKR.xroi);
+  phi     = TKR.phi(  TKR.yroi,TKR.xroi);
+  psi     = TKR.phi0( TKR.yroi,TKR.xroi);
   
   img_show= TKR.img_show;
   iter    = size( results.true_xy,1 );

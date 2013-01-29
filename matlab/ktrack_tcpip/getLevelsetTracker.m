@@ -247,6 +247,7 @@ function  tkr = getLevelsetTracker( params )
   function [g_f2f] = apply_g_compensation(  )
 
     global TKR; 
+    global KOpts;
     tkr.g_f2f = TKR.g_f2f;
     tkr.f     = TKR.f;
     fprintf('| got f = %4.4f |, ',tkr.f);
@@ -274,15 +275,38 @@ function  tkr = getLevelsetTracker( params )
     Kt           = 3 / sqrt(m*n);
     w_ctrl       = [Kt*ty; Kt*tx; 0 ]'*pi/180;
     
+    if ~KOpts.gkC_smart
+      w_ctrl = 0*w_ctrl; 
+    end
+    
     % Bound the control appropriately
     yaw_and_pitch = w_ctrl(1:2)*180/pi;
-    yaw_and_pitch(yaw_and_pitch<-0.25)=-0.25;
-    yaw_and_pitch(yaw_and_pitch> 0.25)= 0.25;
-    w_ctrl(1:2) = yaw_and_pitch*pi/180;
     
-    tauDelay     = TKR.curr_Nframe - TKR.prev_Nframe;
+    Wmax = 0.3;
+    yaw_and_pitch(yaw_and_pitch<-Wmax)=-Wmax;
+    yaw_and_pitch(yaw_and_pitch> Wmax)= Wmax;
+    w_ctrl(1:2) = yaw_and_pitch*pi/180;
+    tauDelay= TKR.curr_Nframe - TKR.prev_Nframe;    
     g_ctrl       = expm([ tauDelay * [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
     w_f2f_hat    = w_f2f- tauDelay * w_ctrl;
+
+    bSolveWithFminCon = false;
+    if bSolveWithFminCon
+      wMax    =  tauDelay * [0.25;0.25] * 1/(180/pi);
+      w_f2fin =  w_f2f(1:2);
+      xydirin =  [tx;ty] ./ sqrt(1e-15+tx.^2+ty.^2);
+
+      opts    = optimset('Display','final','MaxFunEvals',10^3,.... %'iter-detailed'
+                         'Algorithm','active-set','TolFun',1e-8,'TolX',1e-8);
+      [x,fval,exitflag,output,lambda]= ...
+                    fmincon(@wcost,0.9*w_ctrl(1:2),[],[],[],[],-wMax,wMax,@wcon,opts); 
+      cin = wcon(x); 
+      w_ctrlX = [x(:)',0];
+    else
+      w_ctrlX = tauDelay*w_ctrl;
+    end
+    w_f2f_hat = w_f2f - w_ctrlX;
+    g_ctrl  = expm([ [ skewsym(w_ctrlX), [0;0;0] ]; [0 0 0 0] ]);
     fprintf( 'Ndelay=%02d, wx=%4.4f, wy=%4.4f, wz=%4.4f \n',tauDelay,...
                                                             w_f2f_hat(1),...
                                                             w_f2f_hat(2),...
@@ -327,13 +351,30 @@ function  tkr = getLevelsetTracker( params )
     TKR.xx  = xx;
     TKR.yy  = yy;
     
-
-   
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
+    
+    function E = wcost( x )
+      w_ctrl = x(:);
+      w_k_d  = w_f2fin(:) - w_ctrl; % tauDelay removed... already applied it at init
+      E      = ( sum( abs(w_k_d).^2 ) );
+    end
+
+    function [cin,ceq] = wcon(x)
+      w_ctrl = x(:);
+      if ( min( [ sum(abs(xydirin)), sum(abs(w_ctrl))] ) < 1e-9 )
+        cin  = [0];%;0;0];
+      else
+        xydir_w= [w_ctrl(2);w_ctrl(1)]/sqrt(sum(w_ctrl(1:2).^2));  % want <w1,w2> damn close to 1 (colinear)
+        cin    = [-((xydir_w'*xydirin)-0.95) ];
+      end
+      ceq    = [];      %ceq(x) == 0
+    end
+
   end    
 
 
 
+  
 
   function  [mu_i mu_o] = compute_means( Img,phi )
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
