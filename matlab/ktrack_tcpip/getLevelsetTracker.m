@@ -28,9 +28,10 @@ function  tkr = getLevelsetTracker( params )
   tkr.img_show = zeros(m,n,3);
   tkr.xyF      = [n/2;m/2];
   
+  tkr.compare_w0_wX = zeros(3,2);
   tkr.curr_Nframe = 0;% source's count of image (having this is not cheating)
   tkr.prev_Nframe = 0;% source's count of image (having this is not cheating)
-  tkr.true_xy  = [n/2;m/2];% for ground-truth eval
+  tkr.true_xy  = [n/2;m/2];% for ground-truth eval (this is cheating if used)
   
   [epsilon, dX]= get_params();
   tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
@@ -42,6 +43,8 @@ function  tkr = getLevelsetTracker( params )
   tkr.g_ctrl   = eye(4,4);
   tkr.g_k_d    = eye(4,4);
   tkr.f        = 500.0;
+  
+
   
   tkr.psi      = tkr.phi;
   tkr.phi0     = tkr.phi;
@@ -77,7 +80,7 @@ function  tkr = getLevelsetTracker( params )
 
   
   function [xyF] = get_center( )
-    [yc xc] = find( tkr.phi > 0 ); 
+    [yc xc] = find( tkr.phi >= 0 ); 
     if isempty(xc) || isempty(yc) 
       fprintf('warning, no phi > 0 region !?\n'); 
       xyF = [tkr.img_size(2)/2 ; tkr.img_size(1)/2];
@@ -186,8 +189,8 @@ function  tkr = getLevelsetTracker( params )
   
     if KOpts.getPsiTru && isfield(TKR,'psi') % the "true" sdf for target, draw in red
       %psi     = TKR.psi; 
-      psi     = TKR.phi0;
-      tkr.psi = psi; % force copy ...
+      psi      = TKR.phi0;
+      tkr.psi  = psi; % force copy ...
       imgg( abs( tkr.psi ) < phi_show_thresh ) = 0;
       imgb( abs( tkr.psi ) < phi_show_thresh ) = 0;
       imgr( abs( tkr.psi ) < phi_show_thresh) = (imgr( abs( tkr.psi ) < phi_show_thresh) .* ...
@@ -252,15 +255,19 @@ function  tkr = getLevelsetTracker( params )
     tkr.f     = TKR.f;
     fprintf('| got f = %4.4f |, ',tkr.f);
     
+    % argh, why !? 
     m            = tkr.img_size(1);
-    n            = tkr.img_size(2);
+    n            = tkr.img_size(2);  
     [xx yy]      = meshgrid(linspace(1,n,n),linspace(1,m,m));
+    tkr.xx = xx; 
+    tkr.yy = yy;
     
-    % !!!! Crucial source of uncertainty
+    %xx = tkr.xx;
+    %yy = tkr.yy;
+    
     % Can't warp for large translation if this is off, low error margin
-    
     % Interesting concept: use particle filter, use multiple z0 to sample
-    z0           = -100.0;
+    z0           = -100.0; % !!!! Crucial source of uncertainty
     xx           = -(xx - (n-1)/2) / tkr.f * z0;
     yy           =  (yy - (m-1)/2) / tkr.f * z0;
     tkr.xx       = xx;
@@ -272,7 +279,7 @@ function  tkr = getLevelsetTracker( params )
     g_f2f        = tkr.g_f2f; 
     z_f2f        = real(logm(g_f2f));
     w_f2f        = [z_f2f(3,2); -z_f2f(3,1); z_f2f(2,1)]';
-    Kt           = 3 / sqrt(m*n);
+    Kt           = 1 / sqrt(m*n);
     w_ctrl       = [Kt*ty; Kt*tx; 0 ]'*pi/180;
     
     if ~KOpts.gkC_smart
@@ -285,26 +292,29 @@ function  tkr = getLevelsetTracker( params )
     Wmax = 0.3;
     yaw_and_pitch(yaw_and_pitch<-Wmax)=-Wmax;
     yaw_and_pitch(yaw_and_pitch> Wmax)= Wmax;
-    w_ctrl(1:2) = yaw_and_pitch*pi/180;
+    w_ctrl(1:2)  = yaw_and_pitch*pi/180;
     tauDelay= TKR.curr_Nframe - TKR.prev_Nframe;    
     g_ctrl       = expm([ tauDelay * [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
     w_f2f_hat    = w_f2f- tauDelay * w_ctrl;
 
-    bSolveWithFminCon = false;
+    bSolveWithFminCon = KOpts.gkC_fmincon;
     if bSolveWithFminCon
-      wMax    =  tauDelay * [0.25;0.25] * 1/(180/pi);
+      wMax    =  tauDelay * [Wmax;Wmax] * pi/180;
       w_f2fin =  w_f2f(1:2);
       xydirin =  [tx;ty] ./ sqrt(1e-15+tx.^2+ty.^2);
 
       opts    = optimset('Display','final','MaxFunEvals',10^3,.... %'iter-detailed'
                          'Algorithm','active-set','TolFun',1e-8,'TolX',1e-8);
+      x0      = w_ctrl(1:2);
+      cin0    = wcon(x0);
       [x,fval,exitflag,output,lambda]= ...
-                    fmincon(@wcost,0.9*w_ctrl(1:2),[],[],[],[],-wMax,wMax,@wcon,opts); 
+                    fmincon(@wcost,x0,[],[],[],[],-wMax,wMax,@wcon,opts); 
       cin = wcon(x); 
       w_ctrlX = [x(:)',0];
     else
       w_ctrlX = tauDelay*w_ctrl;
     end
+    TKR.compare_w0_wX = [w_ctrl(:)*tauDelay, w_ctrlX(:)];
     w_f2f_hat = w_f2f - w_ctrlX;
     g_ctrl  = expm([ [ skewsym(w_ctrlX), [0;0;0] ]; [0 0 0 0] ]);
     fprintf( 'Ndelay=%02d, wx=%4.4f, wy=%4.4f, wz=%4.4f \n',tauDelay,...
@@ -312,12 +322,10 @@ function  tkr = getLevelsetTracker( params )
                                                             w_f2f_hat(2),...
                                                             w_f2f_hat(3) );
     
-    f            = tkr.f;
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
-      fprintf('Not compensating, seems like g == identity\n');
-     % return; % nothing to do, frame to frame is identity
+      fprintf('Not compensating, seems like g == identity\n'); %nothing to do, frame to frame is identity
     end
-    
+    f            = tkr.f;
     assert( (10 < f) && (1e5 > f ) );
     
     % apply the affine warp to tkr.phi 
@@ -325,8 +333,8 @@ function  tkr = getLevelsetTracker( params )
     v0 = yy;
     
     TKR.g_ctrl = g_ctrl;
-    g_f2fb = expm(  real(logm( TKR.g_f2f ) - logm( TKR.g_ctrl ) ) );
-    TKR.g_k_d = g_f2fb;
+    g_f2fb     = expm(  real(logm( TKR.g_f2f ) - logm( TKR.g_ctrl ) ) );
+    TKR.g_k_d  = g_f2fb;
     
     g_comp =  (g_f2fb^-1); % *
     uv     = g_comp * [ u0(:)'; v0(:)'; z0 * ones(1,numel(v0)); ones(1,numel(v0)) ];
@@ -354,17 +362,17 @@ function  tkr = getLevelsetTracker( params )
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
     
     function E = wcost( x )
-      w_ctrl = x(:);
-      w_k_d  = w_f2fin(:) - w_ctrl; % tauDelay removed... already applied it at init
-      E      = ( sum( abs(w_k_d).^2 ) );
+      wC     = x(:);
+      w_k_d  = w_f2fin(:) - wC; % tauDelay removed... already applied it at init
+      E      = ( sum( abs(w_k_d).^2 ) ) + 1e-2*sum(wC.^2);
     end
 
     function [cin,ceq] = wcon(x)
-      w_ctrl = x(:);
-      if ( min( [ sum(abs(xydirin)), sum(abs(w_ctrl))] ) < 1e-9 )
+      wC = x(:);
+      if ( min( [ sum(abs(xydirin)), sum(abs(wC))] ) < 1e-9 )
         cin  = [0];%;0;0];
       else
-        xydir_w= [w_ctrl(2);w_ctrl(1)]/sqrt(sum(w_ctrl(1:2).^2));  % want <w1,w2> damn close to 1 (colinear)
+        xydir_w= [wC(2);wC(1)]/sqrt(sum(wC(1:2).^2));  % want <w1,w2> damn close to 1 (colinear)
         cin    = [-((xydir_w'*xydirin)-0.95) ];
       end
       ceq    = [];      %ceq(x) == 0

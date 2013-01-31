@@ -4,9 +4,11 @@ function opts = getKtrackOpts( )
 %mode = 'NoCompNoU_HiC';
 mode  = 'YesCompNoU';
 
-gkC_smart = 1; %1 for use model of g_ctrl 
+gkC_smart   = 1; %1 for use model of g_ctrl 
 
-saveRate = 1;
+gkC_fmincon = 0; % use fmincon, not just model
+                 % seems to fail now, why? bad cost func ... 
+saveRate = 0;
 showRate = 1;
 
 b_incrementalWarp = false;
@@ -52,7 +54,7 @@ opts = struct('output_port',5001,'number_of_retries',10,...
     'showImages',showRate,...
     'result_filename',res_fname,...
     'incremental_warp',b_incrementalWarp,...
-    'gkC_smart',gkC_smart);
+    'gkC_smart',gkC_smart,'gkC_fmincon',gkC_fmincon);
   
 disp(opts);
 

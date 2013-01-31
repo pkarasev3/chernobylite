@@ -11,7 +11,8 @@ function results = push_to_results( results )
                      'nFrame_in',[TKR.curr_Nframe],... % source iters, best case equal to tracker iter
                      'ang_diff',[0],...
                      'g_f2f',zeros(4,4,KOpts.max_input_frames),...
-                     'g_ctrl',zeros(4,4,KOpts.max_input_frames) );
+                     'g_ctrl',zeros(4,4,KOpts.max_input_frames),...
+                     'w0wX',zeros(3,2,KOpts.max_input_frames));
     results.g_f2f(:,:,1)=eye(4,4);% [results.g_f2f, eye(4,4)];
     results.g_ctrl(:,:,1)=eye(4,4);%    = [results.g_ctrl, eye(4,4)];
     return;
@@ -40,6 +41,7 @@ function results = push_to_results( results )
   results.nFrame_in = [results.nFrame_in; Nframe];
   results.g_f2f(:,:,iter+1)     = TKR.g_f2f;%[results.g_f2f, TKR.g_f2f];
   results.g_ctrl(:,:,iter+1)    = TKR.g_ctrl;%[results.g_ctrl, TKR.g_ctrl];
+  results.w0wX(:,:,iter+1)      = TKR.compare_w0_wX;
   
   if 0 < KOpts.showImages
     if mod(iter,KOpts.showImages)==0

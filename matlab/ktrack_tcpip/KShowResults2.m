@@ -9,9 +9,9 @@ resnames = {'jan29A/ResultsKtrack.mat',...
             'jan29C/ResultsKtrack.mat',...
             'jan29D/ResultsKtrack.mat'}
 
-cntr_colors={'k-o','b--x','r-s','g--x'};
+cntr_colors={'k-o','b-d','r-x','g-*'};
 
-sfigure(1); clf; sfigure(2); clf;           sfigure(3); clf;           
+sfigure(1); clf; sfigure(2); clf; sfigure(3); clf; sfigure(4); clf;          
 for k =1:numel(resnames)
   s = load([resnames{k}]);
 
@@ -21,37 +21,56 @@ for k =1:numel(resnames)
   % error  ||psi - phi||
   
   
-  f2=sfigure(1); hold on; 
+  f1=sfigure(1); hold on; 
   plot( frames(idx0), frameDelay, cntr_colors{k},...
                   'MarkerSize',4,'MarkerFaceColor',cntr_colors{k}(1),...
                   'LineWidth',1+(mod(k,2)==0));
-  hold off;
+  grid on; hold off;
   
   
   % % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   ang = s.results.ang_diff(idx0) * 180 / pi;
-  m_b = mean(ang)
-  sd_b = sqrt(var(ang));
+  m_b = median(ang)
+  sd_bp = median(ang(ang>m_b));
+  sd_bn = median(ang(ang<m_b));
   
-  sfigure(2); hold on; 
+  f2=sfigure(2); hold on; 
   plot( [k k], [min(ang),max(ang)], 'k--s', 'LineWidth',3);
-  plot( [k k], [m_b-sd_b,m_b+sd_b], 'k-o', 'LineWidth',6); 
+  plot( [k k], [sd_bn,sd_bp], 'k-o', 'LineWidth',6); 
   plot( k, m_b, cntr_colors{k},'MarkerSize',11,'MarkerFaceColor',cntr_colors{k}(1) );
-  hold off;
+  grid on; hold off;
   
   f3=sfigure(3); hold on; 
   plot( frames(idx0), ang, cntr_colors{k},...
-                  'MarkerSize',4,'MarkerFaceColor',cntr_colors{k}(1),...
-                  'LineWidth',1+(mod(k,2)==0));
+                  'MarkerSize',4,...
+                  'LineWidth',1+(mod(k,2)==0)); grid on;
   hold off;
+  %median(s.results.D_ls_err)
+  err_xy = sqrt( sum( (s.results.estm_xy - s.results.true_xy).^2, 2 ) );
+  med_exy=median(err_xy)
+  f4=sfigure(4); 
+  semilogy( frames(idx0), err_xy(idx0), cntr_colors{k},...
+        'MarkerSize',4,'LineWidth',1+(mod(k,2)==0)); grid on; hold on; 
   
-  % One more plot: (x,y) errors
+  
   
   fprintf('');
   %boxplot([d_a d_b d_c],'notch','on',...
   %        'labels',{'Y_5','N_10','N_30'})
 
 end
+
+figure(1); xlabel('sent frame index'); axis([0 202 0 6.5]); ylabel('frame skip');
+legend('A','B','C','D');pause(.001); drawnow; 
+matlab2tikz('ktrack_frameskip.tikz.tex','width','10cm','height','6cm');
+
+figure(3); xlabel('sent frame index'); axis([0 202 0 0.85]); ylabel('angular displacement [deg]');
+legend('A','B','C','D');pause(.001); drawnow; 
+matlab2tikz('ktrack_angularDisplacement.tikz.tex','width','10cm','height','6cm');
+
+figure(4); xlabel('sent frame index'); axis([0 202 4.0 200.0]); ylabel('centroid error [pixels]');
+legend('A','B','C','D');pause(.001); drawnow; 
+matlab2tikz('ktrack_centroidError.tikz.tex','width','10cm','height','6cm');
 
 % f2=sfigure(2); ylabel('segmentation error');
 % axis([0,numel(resnames)+1,10,900]); 
