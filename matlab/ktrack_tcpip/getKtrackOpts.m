@@ -6,7 +6,7 @@ mode  = 'YesCompNoU';
 
 gkC_smart   = 1; %1 for use model of g_ctrl 
 
-gkC_fmincon = 0; % use fmincon, not just model
+gkC_fmincon = 1; % use fmincon, not just model
                  % seems to fail now, why? bad cost func ... 
 saveRate = 0;
 showRate = 1;

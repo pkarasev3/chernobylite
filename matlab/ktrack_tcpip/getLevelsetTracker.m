@@ -273,54 +273,9 @@ function  tkr = getLevelsetTracker( params )
     tkr.xx       = xx;
     tkr.yy       = yy;
     
-    tx           = TKR.xyF(1) - (n)/2; 
-    ty           = TKR.xyF(2) - (m)/2;
-
-    g_f2f        = tkr.g_f2f; 
-    z_f2f        = real(logm(g_f2f));
-    w_f2f        = [z_f2f(3,2); -z_f2f(3,1); z_f2f(2,1)]';
-    Kt           = 1 / sqrt(m*n);
-    w_ctrl       = [Kt*ty; Kt*tx; 0 ]'*pi/180;
-    
-    if ~KOpts.gkC_smart
-      w_ctrl = 0*w_ctrl; 
-    end
-    
-    % Bound the control appropriately
-    yaw_and_pitch = w_ctrl(1:2)*180/pi;
-    
-    Wmax = 0.3;
-    yaw_and_pitch(yaw_and_pitch<-Wmax)=-Wmax;
-    yaw_and_pitch(yaw_and_pitch> Wmax)= Wmax;
-    w_ctrl(1:2)  = yaw_and_pitch*pi/180;
-    tauDelay= TKR.curr_Nframe - TKR.prev_Nframe;    
-    g_ctrl       = expm([ tauDelay * [ skewsym(w_ctrl), [0;0;0] ]; [0 0 0 0] ]);
-    w_f2f_hat    = w_f2f- tauDelay * w_ctrl;
-
-    bSolveWithFminCon = KOpts.gkC_fmincon;
-    if bSolveWithFminCon
-      wMax    =  tauDelay * [Wmax;Wmax] * pi/180;
-      w_f2fin =  w_f2f(1:2);
-      xydirin =  [tx;ty] ./ sqrt(1e-15+tx.^2+ty.^2);
-
-      opts    = optimset('Display','final','MaxFunEvals',10^3,.... %'iter-detailed'
-                         'Algorithm','active-set','TolFun',1e-8,'TolX',1e-8);
-      x0      = w_ctrl(1:2);
-      cin0    = wcon(x0);
-      [x,fval,exitflag,output,lambda]= ...
-                    fmincon(@wcost,x0,[],[],[],[],-wMax,wMax,@wcon,opts); 
-      cin = wcon(x); 
-      w_ctrlX = [x(:)',0];
-    else
-      w_ctrlX = tauDelay*w_ctrl;
-    end
-    TKR.compare_w0_wX = [w_ctrl(:)*tauDelay, w_ctrlX(:)];
-    w_f2f_hat = w_f2f - w_ctrlX;
-    g_ctrl  = expm([ [ skewsym(w_ctrlX), [0;0;0] ]; [0 0 0 0] ]);
-    fprintf( 'Ndelay=%02d, wx=%4.4f, wy=%4.4f, wz=%4.4f \n',tauDelay,...
-                                                            w_f2f_hat(1),...
-                                                            w_f2f_hat(2),...
-                                                            w_f2f_hat(3) );
+    [g_ctrl, TKR] = solve_gkC( TKR, KOpts );
+    fuck          = TKR.compare_w0_wX'
+    g_f2f         = tkr.g_f2f;
     
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
       fprintf('Not compensating, seems like g == identity\n'); %nothing to do, frame to frame is identity
@@ -407,6 +362,8 @@ function  tkr = getLevelsetTracker( params )
   
 
 end
+
+
 
 %     z = real(logm(TKR.g_f2f)) * 180/pi;
 %     if abs(z(2,1)) > 3.0

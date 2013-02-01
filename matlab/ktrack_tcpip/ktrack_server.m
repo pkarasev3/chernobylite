@@ -207,7 +207,10 @@ while true
   end
 end
 
-save ResultsKtrack  results  KOpts  TKR
+meanXYerr = mean( sum( (results.estm_xy - results.true_xy).^2, 2 ) )
+save ResultsKtrack  results  KOpts  TKR  meanXYerr
+
+
 
 %               hold on;
 %img = silent_rectangle([xyF(2),xyF(1)],20,img,[255 50 100]);
