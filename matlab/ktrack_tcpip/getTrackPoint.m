@@ -25,12 +25,12 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   global TKR;   
   global KOpts;
-  CONTROL_IS_ON =   false(); %true(); %
+  bUseUControl =   false(); %true(); %
   
   img = rgb2gray(double(img) * 1.0/255.0);
   img = 10.0 * (img - min(img(:)))/(max(img(:))-min(img(:))+1e-9);
   if ~isfield(TKR,'compensate')   % (a) creating tracker! 
-    params = struct('control_is_on',CONTROL_IS_ON,'Img',img);
+    params = struct('bUseUControl',bUseUControl,'Img',img);
     tkr = getLevelsetTracker( params );
     TKR = tkr;
   else              % (b) already exists! 

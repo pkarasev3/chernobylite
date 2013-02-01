@@ -3,14 +3,7 @@ function [img, g_WC, f, true_xy, true_Nframe, Zbuffer ] = ...
   dbstop if error
     meta_data  = typecast(data_raw(1:headerLen),'double');
     g_WC       = reshape(meta_data(7:7+15),[4,4])';
-    
-    bHasNoise  = false() && (rand(1,1) > 0.95);
-    if( bHasNoise )
-      noise      = [ expm( skewsym(randn(3,1)*0.05) ) , 0.05*randn(3,1); [0 0 0 1] ];
-      disp('before noise g_WC = '); disp(g_WC);
-      g_WC       = g_WC * noise;
-    end
-    
+   
     
     f          = meta_data(23); assert( (1e2 < f) && (f < 1e4) ); % ensure sane f
     disp('g_WC = '); disp(g_WC);
@@ -33,7 +26,7 @@ function [img, g_WC, f, true_xy, true_Nframe, Zbuffer ] = ...
     img(:,:,3)=B;
     
     zbv_raw    = typecast(data_raw(Irgb_end+1:Zbuf_end),'single');
-    Zbuffer    = reshape( zbv_raw(:), [640 480] )';
+    Zbuffer    = double(reshape( zbv_raw(:), [640 480] )');
     
     % careful, must agree with source
       zNear = 10.0; 
@@ -58,3 +51,10 @@ function ShowZbuff_Debug( zb )
   drawnow;
 
 end
+
+%     bHasNoise  = false() && (rand(1,1) > 0.95);
+%     if( bHasNoise )
+%       noise      = [ expm( skewsym(randn(3,1)*0.05) ) , 0.05*randn(3,1); [0 0 0 1] ];
+%       disp('before noise g_WC = '); disp(g_WC);
+%       g_WC       = g_WC * noise;
+%     end

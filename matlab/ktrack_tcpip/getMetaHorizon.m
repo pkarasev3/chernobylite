@@ -1,7 +1,7 @@
 function [img_out] = getMetaHorizon( g_WC, img_in, f )
 % g_WC:  maps world coords into camera coords
-% TODO: Seems to crash if horizon line is not thru the image
-
+  
+  
   dbstop if error
   bTesting = false;
   if nargin == 0
@@ -29,11 +29,10 @@ function [img_out] = getMetaHorizon( g_WC, img_in, f )
   
   
   
-  zmax = 300.0; % cutoff at some max z-value
-  Umax = 0.0;   % set outside range to this
+  zmax =  500.0;  % cutoff at some max z-value; why not make it be the zFarClip?
+  Umax =  0.0;   % set outside range to this
   img_out( img_out > zmax ) = Umax;
-  img_out = flipdim(img_out,1);
- % img_out = imfilter( img_out, ones(5,5)/25,'replicate');
+  img_out = flipdim(img_out,1);   
   
   if bTesting
     sfigure(1); imagesc(img_out); title('metadata U_{horizon}');

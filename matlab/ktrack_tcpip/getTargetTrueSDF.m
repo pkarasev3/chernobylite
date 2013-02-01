@@ -21,7 +21,7 @@ function psi = getTargetTrueSDF( Zbuffer, target_xy )
   psi        = -100  +     0*Zbuffer;
   subPsi     = -100  + 200.0* ( abs( subZbuff - minZ ) < zVarThresh );
   
-  redistIters = 20; 
+  redistIters = 0; 
   dX = 1/sqrt(2); 
   subPsi = reinitializeLevelSetFunction( subPsi, 2, dX,redistIters, 2, 1, true() );
   

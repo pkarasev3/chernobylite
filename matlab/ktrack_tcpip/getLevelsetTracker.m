@@ -1,18 +1,18 @@
 function  tkr = getLevelsetTracker( params )  
-% minimal params:  Img  HxWxC, control_is_on bool
+% minimal params:  Img  HxWxC, bUseUcontrol bool
 % returns: tkr struct with update_phi method
-
+  global KOpts;
   %dbstop if error;
   addpath('~/source/chernobylite/matlab/util/');
   addpath('~/source/chernobylite/matlab/display_helpers/');
   addpath('~/source/chernobylite/matlab/LSMlibPK/');
   
   if nargin < 1
-    params = []; params.control_is_on = false; params.Img = zeros(480,640,3);
+    params = []; params.bUseUcontrol = false; params.Img = zeros(480,640,3);
   end
   
   tkr = []; 
-  tkr.CONTROL_IS_ON = params.control_is_on; 
+  tkr.bUseUcontrol = KOpts.bUseUControl; 
   
   img_in       = params.Img;
   [m,n,cc]     = size(img_in); 
@@ -27,6 +27,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.img1     = params.Img;
   tkr.img_show = zeros(m,n,3);
   tkr.xyF      = [n/2;m/2];
+  tkr.U        = zeros(m,n);
   
   tkr.compare_w0_wX = zeros(3,2);
   tkr.curr_Nframe = 0;% source's count of image (having this is not cheating)
@@ -36,7 +37,8 @@ function  tkr = getLevelsetTracker( params )
   [epsilon, dX]= get_params();
   tkr.phi      = (100)*(0.005 - xx.^2 - yy.^2);
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 2,dX, 2, 2, true() );
-  tkr.U        = 0*tkr.phi;
+  tkr.fUraw    = 0*tkr.phi;
+  tkr.f_of_U   = 0*tkr.phi;
   tkr.lambda   = 0.35 * ( max((img_in(:))) - min((img_in(:))) );
   tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)];
   tkr.g_f2f    = eye(4,4);
@@ -94,20 +96,20 @@ function  tkr = getLevelsetTracker( params )
   
   function  [dt_a mu_i mu_o g_alpha] = update_phi(Img, U, t_0to1 )
     global TKR;
-    global KOpts;
+    
     if ndims(Img) == 3
       Img = rgb2gray(Img);
     end
     if nargin < 3
       t_0to1 = 0;
     end
-    phi           = tkr.phi;
-    CONTROL_IS_ON = tkr.CONTROL_IS_ON; 
+    phi          = tkr.phi;
+    bUseUcontrol = tkr.bUseUcontrol; 
     
     if nargin < 2 
       U = 0 * phi;
     end
-    
+    TKR.U=U;
     [roi_i, roi_j]= find( phi > -dX*10 );
     left = min(roi_j(:)); right = max(roi_j(:));
     top  = min(roi_i(:)); bottom= max(roi_i(:));
@@ -121,10 +123,10 @@ function  tkr = getLevelsetTracker( params )
     [mu_i, mu_o]  = compute_means(Img,phi);
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
 
-    [kappa_phi, dx, dy] = kappa( phi );
+    [kappa_phi, phix, phiy,phix2,phiy2] = kappa( phi );
     if KOpts.incremental_warp
-      Nx =  dx ./ sqrt(dx.^2+dy.^2+1e-6);
-      Ny = -dy ./ sqrt(dx.^2+dy.^2+1e-6);
+      Nx =  dx ./ sqrt(phix.^2+phiy.^2+1e-6);
+      Ny = -dy ./ sqrt(phix.^2+phiy.^2+1e-6);
       fgain = 50.0 / KOpts.contour_iters;
       fdotN = -( fx .* Nx + fy .* Ny )*fgain ;
       %fdotN =  fgain / (1+max(abs(fdotN(:))));
@@ -133,18 +135,15 @@ function  tkr = getLevelsetTracker( params )
     end
     
     
-   if CONTROL_IS_ON  
-      U = imfilter( (-1 + 2*(U>0)), fspecial('gaussian',[5 5],3),'replicate');
-      [U_i, U_o] = compute_means(U,phi);
-      % f: |U-U_i| < uMin  maps to 0
-      % f: |U-U_i| >=1  maps to -G 
-      uMin   =        0.1;
-      xi_sqr = abs(U-U_i); 
-      tkr.f_of_U = (xi_sqr > uMin).*( min(xi_sqr - uMin, 1.0 ) );
+    if bUseUcontrol  
+      tkr.f_of_U = get_fU( phi, U, phix./sqrt(phix2+phiy2+1e-12), ...
+                                  -phiy./sqrt(phix2+phiy2+1e-12) ); 
     else
       tkr.f_of_U = 0*phi;
     end
+    
     f_of_U     = (tkr.f_of_U).*(-g_alpha);
+    
     lambda     = tkr.lambda;
     
     if KOpts.incremental_warp
@@ -172,7 +171,7 @@ function  tkr = getLevelsetTracker( params )
   
   function displayLevelSets(img0)
     global TKR; % d'oh 
-    global KOpts;
+    
     if ndims(img0) ~= 3 
       img_show = repmat(img0,[1 1 3]);
       img_show = img_show / max(img_show(:));
@@ -188,14 +187,12 @@ function  tkr = getLevelsetTracker( params )
     phi = tkr.phi;
   
     if KOpts.getPsiTru && isfield(TKR,'psi') % the "true" sdf for target, draw in red
-      %psi     = TKR.psi; 
-      psi      = TKR.phi0;
-      tkr.psi  = psi; % force copy ...
-      imgg( abs( tkr.psi ) < phi_show_thresh ) = 0;
-      imgb( abs( tkr.psi ) < phi_show_thresh ) = 0;
-      imgr( abs( tkr.psi ) < phi_show_thresh) = (imgr( abs( tkr.psi ) < phi_show_thresh) .* ...
-          abs( tkr.psi(abs(tkr.psi) < phi_show_thresh ) )/phi_show_thresh  + ...
-          1.5 * (phi_show_thresh - abs( tkr.psi(abs(tkr.psi) < phi_show_thresh ) ) )/phi_show_thresh );
+      phi0     = TKR.phi0;
+      imgg( abs( phi0 ) < phi_show_thresh ) = 0;
+      imgb( abs( phi0 ) < phi_show_thresh ) = 0;
+      imgr( abs( phi0 ) < phi_show_thresh) = (imgr( abs( phi0 ) < phi_show_thresh) .* ...
+          abs( phi0(abs(phi0) < phi_show_thresh ) )/phi_show_thresh  + ...
+          1.5 * (phi_show_thresh - abs( phi0(abs(phi0) < phi_show_thresh ) ) )/phi_show_thresh );
     end
     
     % draw contour in green for tracker
@@ -250,7 +247,7 @@ function  tkr = getLevelsetTracker( params )
   function [g_f2f] = apply_g_compensation(  )
 
     global TKR; 
-    global KOpts;
+   
     tkr.g_f2f = TKR.g_f2f;
     tkr.f     = TKR.f;
     fprintf('| got f = %4.4f |, ',tkr.f);
@@ -274,7 +271,7 @@ function  tkr = getLevelsetTracker( params )
     tkr.yy       = yy;
     
     [g_ctrl, TKR] = solve_gkC( TKR, KOpts );
-    fuck          = TKR.compare_w0_wX'
+    %fuck          = TKR.compare_w0_wX'
     g_f2f         = tkr.g_f2f;
     
     if norm( g_f2f - eye(4,4),'fro') < 1e-6 
@@ -316,22 +313,7 @@ function  tkr = getLevelsetTracker( params )
     
     fprintf('pixel shift in contour compensation, dx=%3.3g, dy=%3.3g\n',dx,dy);
     
-    function E = wcost( x )
-      wC     = x(:);
-      w_k_d  = w_f2fin(:) - wC; % tauDelay removed... already applied it at init
-      E      = ( sum( abs(w_k_d).^2 ) ) + 1e-2*sum(wC.^2);
-    end
-
-    function [cin,ceq] = wcon(x)
-      wC = x(:);
-      if ( min( [ sum(abs(xydirin)), sum(abs(wC))] ) < 1e-9 )
-        cin  = [0];%;0;0];
-      else
-        xydir_w= [wC(2);wC(1)]/sqrt(sum(wC(1:2).^2));  % want <w1,w2> damn close to 1 (colinear)
-        cin    = [-((xydir_w'*xydirin)-0.95) ];
-      end
-      ceq    = [];      %ceq(x) == 0
-    end
+    
 
   end    
 

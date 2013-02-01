@@ -46,6 +46,7 @@ function results = push_to_results( results )
   if 0 < KOpts.showImages
     if mod(iter,KOpts.showImages)==0
       sfigure(1); imshow( TKR.img_show ); 
+     % sfigure(2); imagesc( TKR.U ); title('metaimage U');
     end
     if mod(iter,KOpts.saveImages)==0
       filename=sprintf('ktracker_%04d.png',iter); 

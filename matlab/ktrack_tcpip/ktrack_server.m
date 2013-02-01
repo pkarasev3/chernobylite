@@ -207,8 +207,10 @@ while true
   end
 end
 
-meanXYerr = mean( sum( (results.estm_xy - results.true_xy).^2, 2 ) )
-save ResultsKtrack  results  KOpts  TKR  meanXYerr
+if true_Nframe > opts.max_input_frames 
+  meanXYerr = mean( sum( (results.estm_xy - results.true_xy).^2, 2 ) ) %#ok<NOPTS>
+  save ResultsKtrack  results  KOpts  TKR  meanXYerr
+end
 
 
 
