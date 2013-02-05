@@ -7,7 +7,7 @@ function fU = get_fU( phi, U,phiNx,phiNy)
   Uy=-Uy./magGradU;
   nphi_dot_nU = Ux.*phiNx + Uy.*phiNy;
   
-  fU = abs( nphi_dot_nU ) .* (U > 0);
+  fU = 0.1 + 0.9*abs( nphi_dot_nU ) ;
   
   fprintf('');
 

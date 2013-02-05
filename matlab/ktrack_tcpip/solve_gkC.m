@@ -36,10 +36,13 @@ function [g_ctrl, TKR ] = solve_gkC( TKR, KOpts )
       wS      = 3;
       for LoL = 1:2
         if tmpFu(LoL) > 0
-          wMax(LoL) = min( [Wmax, wS*w_ctrl_0(LoL)] );
+          wMax(LoL) =  min( [Wmax, wS*w_ctrl_0(LoL)] );
           wMin(LoL) = 0;
         else
-          wMin(LoL) = max( [-Wmax, wS*w_ctrl_0(LoL)] );
+          refv = max( [-Wmax, wS*w_ctrl_0(LoL)] );
+          % should be equivalent:
+          wMin(LoL) = -min( [Wmax, wS*abs(w_ctrl_0(LoL)) ] ); 
+          assert( abs(refv - wMin(LoL) ) < 1e-9 );
           wMax(LoL) = 0;
         end
       end
