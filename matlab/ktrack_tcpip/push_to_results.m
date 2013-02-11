@@ -8,6 +8,7 @@ function results = push_to_results( results )
     results = struct('true_xy',[TKR.true_xy(:)'],...  % received target centroid hint
                      'estm_xy',[TKR.true_xy(:)'],...  % tracker result
                      'D_ls_err',[0],... % D, error between levelsets phi,psi
+                     'Area',[0],... % area of tracking region
                      'nFrame_in',[TKR.curr_Nframe],... % source iters, best case equal to tracker iter
                      'ang_diff',[0],...
                      'g_f2f',zeros(4,4,KOpts.max_input_frames),...
@@ -22,18 +23,19 @@ function results = push_to_results( results )
   xyF         = TKR.xyF;
   Nframe      = TKR.curr_Nframe;
   
-  % restrict these to an roi...
-  phi     = TKR.phi(  TKR.yroi,TKR.xroi);
-  psi     = TKR.phi0( TKR.yroi,TKR.xroi);
+  % restrict these to an roi... ??
+  phi     = TKR.phi( TKR.yroi,TKR.xroi);
+  psi     = TKR.psi( TKR.yroi,TKR.xroi);
   
   img_show= TKR.img_show;
   iter    = size( results.true_xy,1 );
 
-  D_err   = 0.5*trapz(trapz( (TKR.Heavi(phi) - TKR.Heavi(psi)).^2 ) );
-  
+  D_err    = 0.5*trapz(trapz( (TKR.Heavi(phi) - TKR.Heavi(psi)).^2 ) );
+  A_in     = TKR.Area;
   z_f2f    = real(logm(TKR.g_f2f));
   ang_diff = norm( [z_f2f(2,1), z_f2f(3,1), z_f2f(3,2)]);
   
+  results.Area      = [results.Area; A_in];
   results.ang_diff  = [results.ang_diff; ang_diff];
   results.true_xy   = [results.true_xy; true_xy(:)'];
   results.estm_xy   = [results.estm_xy; xyF(:)'];

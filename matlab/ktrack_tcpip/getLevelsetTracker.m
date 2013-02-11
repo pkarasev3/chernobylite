@@ -46,7 +46,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.g_ctrl   = eye(4,4);
   tkr.g_k_d    = eye(4,4);
   tkr.f        = 500.0;
-  
+  tkr.Area     = sum( tkr.phi(:) >= 0 );
 
   
   tkr.psi      = tkr.phi;
@@ -138,7 +138,7 @@ function  tkr = getLevelsetTracker( params )
     assert( isItReallyGmax );
       
     if bUseUcontrol  
-      tkr.f_of_U = get_fU( phi, U, Img, phix./sqrt(phix2+phiy2+1e-12), ...
+      tkr.f_of_U = get_fU( phi, U, Img, g_alpha, phix./sqrt(phix2+phiy2+1e-12), ...
                                   -phiy./sqrt(phix2+phiy2+1e-12) ); 
     else
       tkr.f_of_U = 0*phi;
@@ -157,7 +157,8 @@ function  tkr = getLevelsetTracker( params )
     redistIters = 3; % 1 or 2, negligible effect for speed
     tkr.phi(top:bottom,left:right) = reinitializeLevelSetFunction( ... 
                    tkr.phi(top:bottom,left:right), 2, dX,redistIters, 1, 1, true() );
-                 
+%     TKR.xroi = roi_j;
+%     TKR.yroi = roi_i;
   end
 
   
@@ -227,6 +228,7 @@ function  tkr = getLevelsetTracker( params )
     end
     
     A_current = TKR.get_area( phi );
+    TKR.Area  = A_current;
     fprintf(', A=%4.2f   , done display() ...',A_current);
   end
 

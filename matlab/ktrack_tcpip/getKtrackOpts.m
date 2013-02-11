@@ -3,7 +3,7 @@ function opts = getKtrackOpts( )
 %mode = 'NoCompNoU_LoC';
 %mode = 'NoCompNoU_HiC';
 %mode = 'YesCompNoU';
-mode  = 'YesCompYesU';
+mode = 'YesCompYesU';
 
 gkC_smart   = 1; %1 for use model of g_ctrl 
 
@@ -16,28 +16,21 @@ b_useUControl = false();
 b_incrementalWarp = false;
 
 if strcmp(mode,'NoCompNoU_LoC')
-  b_compensateMotion = false(); %true();
+  b_compensateMotion = false(); 
   b_computeHorizon   = false();
   C_iters             = 10; 
   i_maxInputFrames    = 200;
 elseif strcmp(mode,'NoCompNoU_HiC')
-  b_compensateMotion = false(); %true();
+  b_compensateMotion = false();
   b_computeHorizon   = false();
-  C_iters             = 30; % Should work with 30 
+  C_iters             = 30; 
   i_maxInputFrames    = 200;  
 elseif strcmp(mode,'YesCompNoU')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
   showRate           = 1;
-  C_iters            = 10; %different count as low, but same *timefactor*
-elseif strcmp(mode,'YesCompNoU_Inc')
-  b_compensateMotion = true();
-  b_computeHorizon   = false();
-  i_maxInputFrames   = 200;
   C_iters            = 10; 
-  showRate           = 1;
-  b_incrementalWarp  = true;
 elseif strcmp(mode,'YesCompYesU')
   b_compensateMotion = true();
   b_computeHorizon   = false();

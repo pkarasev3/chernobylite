@@ -208,8 +208,26 @@ while true
 end
 
 if true_Nframe > opts.max_input_frames 
-  meanXYerr = mean( sum( (results.estm_xy - results.true_xy).^2, 2 ) ) %#ok<NOPTS>
+  err_xy = sqrt( sum( (results.estm_xy - results.true_xy).^2, 2 ) );
+  meanXYerr = mean( err_xy ) %#ok<NOPTS>
   save ResultsKtrack  results  KOpts  TKR  meanXYerr
+  
+  frames     = results.nFrame_in;
+  idx0       = 2:numel(frames);
+  frameDelay = diff( frames );
+  
+  % % 
+  sfigure(2); clf; %subplot(3, 1, 1); plot( frames(idx0), results.D_ls_err(idx0), 'b-.o' ); 
+  subplot(3, 1, 1); semilogy( frames(idx0), err_xy(idx0),'b-.o');
+  grid on; axis([0 202 2 1.1*max(err_xy(idx0) ) ]); drawnow; pause(0.001);
+  set(gca,'YTick',[2,5,10,20,30,100,200],'YTickLabel',[2,5,10,20,30,100,200],'YMinorGrid','on');
+  legend('err_{xy}','Location','Best'); 
+  % % 
+  subplot(3, 1, 2); plot( frames(idx0), frameDelay, 'g--s' ); 
+  grid on; legend('frameskip','Location','North'); axis([0 202 0 1.1*max(frameDelay(:))]);
+  % %
+  subplot(3, 1, 3); plot( frames(idx0), results.Area(idx0),'k-x' ); 
+  grid on; legend('area','Location','Best'); axis([0 202 0 1.25*max(results.Area(idx0))]);
 end
 
 

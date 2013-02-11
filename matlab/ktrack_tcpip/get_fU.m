@@ -1,5 +1,5 @@
-function fU = get_fU( phi, U, Img, phiNx, phiNy)
-  global TKR;
+function fU = get_fU( phi, U, Img, g_alpha, phiNx, phiNy)
+ % global TKR;
   
 %   [Ux Uy] = gradient(U);
 %   magGradU= 1e-9 + sqrt( Ux.^2 + Uy.^2 );
@@ -8,7 +8,7 @@ function fU = get_fU( phi, U, Img, phiNx, phiNy)
 %   nphi_dot_nU = Ux.*phiNx + Uy.*phiNy;
 %   
 %   fU = 0.1 + 0.9*abs( nphi_dot_nU ) ;
-  fU = fU_area_regulator( phi, Img, phiNx, phiNy );
+  fU = fU_area_regulator( phi, Img, g_alpha, phiNx, phiNy );
 
 
   fprintf('');
@@ -26,14 +26,15 @@ function f = fU_area_regulator( phi, Img, g_alpha, phiNx, phiNy )
   A_max     = pi * 17^2;
   
   iMinMax   = TKR.imgMinMax; 
-  Gmax      = max(  (iMinMax(2)-Img).^2, (iMinMax(1)-Img).^2 );
+  Gmax      = 1.5 * abs(g_alpha); 
+  %Gmax2     = max(  (iMinMax(2)-Img).^2, (iMinMax(1)-Img).^2 );
+  %sfigure(3); plot( Gmax(:),'g-o'); hold on; plot( Gmax2(:),'r--s'); hold off;
   
   [yc xc] = find( phi >= -2 );
   yc      = [yc(:); round(size(phi,1)/2)];
   xc      = [xc(:); round(size(phi,2)/2)];
   
   xyC     = [mean(xc(:));mean(yc(:))];
-  %xyC     = xyC + 0.1*(TKR.xyF - TKR.xyF_prev);
   
   distToC    = 0*phi;
   distToC(sub2ind(size(phi),yc,xc)) = ... 
