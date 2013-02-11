@@ -40,7 +40,7 @@ elseif strcmp(mode,'YesCompNoU_Inc')
   b_incrementalWarp  = true;
 elseif strcmp(mode,'YesCompYesU')
   b_compensateMotion = true();
-  b_computeHorizon   = true();
+  b_computeHorizon   = false();
   i_maxInputFrames   = 200;
   C_iters            = 10; 
   showRate           = 1;

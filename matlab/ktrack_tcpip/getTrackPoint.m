@@ -32,7 +32,7 @@ function [xyF] = levelset_means( img, xy0, U_in )
   if ~isfield(TKR,'compensate')   % (a) creating tracker! 
     params = struct('bUseUControl',bUseUControl,'Img',img);
     tkr = getLevelsetTracker( params );
-    TKR = tkr;
+    TKR = tkr; fprintf('\nCreated TKR; Should only happen once! \n');
   else              % (b) already exists! 
     tkr = TKR;
   end
@@ -54,13 +54,6 @@ function [xyF] = levelset_means( img, xy0, U_in )
   
   tkr.display(img); % Careful, this responsible stuff moving tkr => TKR 
   
-  bDrawCentroid = false;
-  if bDrawCentroid
-    hold on; plot( xyF(1), xyF(2), 'rs','LineWidth',3 ); plot( xyF(1), xyF(2), 'mx','LineWidth',1 ); 
-    hold off; 
-  end
-  drawnow();
- 
   pause(0.001);
 end
 

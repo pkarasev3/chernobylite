@@ -28,6 +28,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.img_show = zeros(m,n,3);
   tkr.xyF      = [n/2;m/2];
   tkr.U        = zeros(m,n);
+  tkr.imgMinMax= [min(params.Img(:)); max(params.Img(:)) ];
   
   tkr.compare_w0_wX = zeros(3,2);
   tkr.curr_Nframe = 0;% source's count of image (having this is not cheating)
@@ -39,8 +40,8 @@ function  tkr = getLevelsetTracker( params )
   tkr.phi      = reinitializeLevelSetFunction(tkr.phi, 2,dX, 2, 2, true() );
   tkr.fUraw    = 0*tkr.phi;
   tkr.f_of_U   = 0*tkr.phi;
-  tkr.lambda   = 0.35 * ( max((img_in(:))) - min((img_in(:))) );
-  tkr.xyF_prev = [tkr.img_size(2); tkr.img_size(1)];
+  tkr.lambda   = 5 * ( max((img_in(:))) - min((img_in(:))) );
+  tkr.xyF_prev = [tkr.img_size(2)/2; tkr.img_size(1)/2];
   tkr.g_f2f    = eye(4,4);
   tkr.g_ctrl   = eye(4,4);
   tkr.g_k_d    = eye(4,4);
@@ -56,6 +57,7 @@ function  tkr = getLevelsetTracker( params )
   tkr.Heavi      = @Heavi;
   tkr.delta      = @delta;
   tkr.get_means  = @compute_means;
+  tkr.get_area   = @compute_area;
   tkr.update_phi = @update_phi;
   tkr.display    = @displayLevelSets; 
   tkr.get_center = @get_center;
@@ -109,62 +111,52 @@ function  tkr = getLevelsetTracker( params )
     if nargin < 2 
       U = 0 * phi;
     end
-    TKR.U=U;
-    [roi_i, roi_j]= find( phi > -dX*10 );
-    left = min(roi_j(:)); right = max(roi_j(:));
-    top  = min(roi_i(:)); bottom= max(roi_i(:));
-    Img  = Img(top:bottom,left:right);
-    phi  = phi(top:bottom,left:right);
-    fx   = TKR.fx(top:bottom,left:right); 
-    fy   = TKR.fy(top:bottom,left:right);
-  
-    U    = U(top:bottom,left:right);
+    %TKR.U=U;
     
+    % % Extract ROI (mostly for speed)
+    [roi_i, roi_j]= find( phi > -dX*10 );
+    
+    left  = min(roi_j(:));
+    right = max(roi_j(:));
+    top   = min(roi_i(:)); 
+    bottom= max(roi_i(:));
+    Img   = Img(top:bottom,left:right);
+    phi   = phi(top:bottom,left:right);
+    U     = U(top:bottom,left:right);
+    
+    % % Image-Dependent part
     [mu_i, mu_o]  = compute_means(Img,phi);
     g_alpha= -(Img - mu_i).^2 + (Img - mu_o).^2;
 
+    % % Regularization part 
     [kappa_phi, phix, phiy,phix2,phiy2] = kappa( phi );
-    if KOpts.incremental_warp
-      Nx =  dx ./ sqrt(phix.^2+phiy.^2+1e-6);
-      Ny = -dy ./ sqrt(phix.^2+phiy.^2+1e-6);
-      fgain = 50.0 / KOpts.contour_iters;
-      fdotN = -( fx .* Nx + fy .* Ny )*fgain ;
-      %fdotN =  fgain / (1+max(abs(fdotN(:))));
-    else
-      fdotN = 0*phi;
-    end
     
-    
+    iMinMax   = TKR.imgMinMax; 
+    Gmax      = max(  (iMinMax(2)-Img).^2 , (iMinMax(1)-Img).^2 );
+      
+    isItReallyGmax = ( sum( abs(g_alpha(:)) > Gmax(:) ) < 1 ); 
+    assert( isItReallyGmax );
+      
     if bUseUcontrol  
-      tkr.f_of_U = get_fU( phi, U, phix./sqrt(phix2+phiy2+1e-12), ...
+      tkr.f_of_U = get_fU( phi, U, Img, phix./sqrt(phix2+phiy2+1e-12), ...
                                   -phiy./sqrt(phix2+phiy2+1e-12) ); 
     else
       tkr.f_of_U = 0*phi;
     end
     
-    f_of_U     = (tkr.f_of_U).*(-g_alpha);
     
-    lambda     = tkr.lambda;
-    
-    if KOpts.incremental_warp
-      fprintf('max g_alpha, fdotN = %4.4f, %4.4f\n',...
-      max(abs(g_alpha(:))),max( (abs(fdotN(:))) ) );
-    end
-    dphi  = delta(phi) .* ( g_alpha + fdotN + f_of_U + lambda * kappa_phi) ;
-    dt0   = 0.95;
+    lambda = tkr.lambda;
+    dphi  = delta(phi) .* ( g_alpha + tkr.f_of_U + lambda * kappa_phi) ;
+    dt0   = 0.75;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
-    
-    phiArea = trapz(trapz(Heavi( phi ) ) );
-    minArea = 17*17;
-    phi     = phi + (phiArea < minArea)*(1.0);
     
     tkr.phi(top:bottom,left:right) = phi; % must force copy here, not return it
     top = max(1,top-8); bottom = min(tkr.img_size(1),bottom+8);
     left= max(1,left-8); right = min(tkr.img_size(2),right+8);
-    redistIters = 2; % 1 or 2, negligible effect for speed
+    redistIters = 3; % 1 or 2, negligible effect for speed
     tkr.phi(top:bottom,left:right) = reinitializeLevelSetFunction( ... 
-                   tkr.phi(top:bottom,left:right), 2, dX,redistIters, 2, 1, true() );
+                   tkr.phi(top:bottom,left:right), 2, dX,redistIters, 1, 1, true() );
                  
   end
 
@@ -202,15 +194,8 @@ function  tkr = getLevelsetTracker( params )
       abs( phi(abs(phi) < phi_show_thresh ) )/phi_show_thresh  + ...
       1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh );
       
- 
-    
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
-    
-    % need good way to show tkr.f_of_U ...
-    % f_of_U = tkr.f_of_U;
-    
-    %imshow(img_show);
     
     TKR.img1(:)     = TKR.img0(:);
     TKR.img0(:)     = img0(:);
@@ -241,7 +226,8 @@ function  tkr = getLevelsetTracker( params )
       breakhere=1;
     end
     
-    fprintf('');
+    A_current = TKR.get_area( phi );
+    fprintf(', A=%4.2f   , done display() ...',A_current);
   end
 
   function [g_f2f] = apply_g_compensation(  )
@@ -259,14 +245,16 @@ function  tkr = getLevelsetTracker( params )
     tkr.xx = xx; 
     tkr.yy = yy;
     
+    
+    
     %xx = tkr.xx;
     %yy = tkr.yy;
     
     % Can't warp for large translation if this is off, low error margin
     % Interesting concept: use particle filter, use multiple z0 to sample
     z0           = -100.0; % !!!! Crucial source of uncertainty
-    xx           = -(xx - (n-1)/2) / tkr.f * z0;
-    yy           =  (yy - (m-1)/2) / tkr.f * z0;
+    xx           = -(xx - (n)/2) / tkr.f * z0;
+    yy           =  (yy - (m)/2) / tkr.f * z0;
     tkr.xx       = xx;
     tkr.yy       = yy;
     
@@ -285,7 +273,10 @@ function  tkr = getLevelsetTracker( params )
     v0 = yy;
     
     TKR.g_ctrl = g_ctrl;
-    g_f2fb     = expm(  real(logm( TKR.g_f2f ) - logm( TKR.g_ctrl ) ) );
+    
+    %expm(  real(logm( TKR.g_f2f ) - logm( TKR.g_ctrl ) ) );
+    g_f2fb     = TKR.g_f2f*(TKR.g_ctrl)^(-1);
+    
     TKR.g_k_d  = g_f2fb;
     
     g_comp =  (g_f2fb^-1); % *
@@ -319,7 +310,9 @@ function  tkr = getLevelsetTracker( params )
 
 
 
-  
+  function A = compute_area(phi)
+    A = trapz(trapz(Heavi( phi ) ) );
+  end
 
   function  [mu_i mu_o] = compute_means( Img,phi )
     mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );

@@ -1,7 +1,7 @@
 % A script to generate an input file for the simulator_client program.
 % writes a simple CSV array to text, with appropriate extension .xyzuvw
 
-objFileName = 'MiG-35.obj';
+objFileName = 'SomeObjPath';
 savePath    = '/u4/home/pkarasev3/source/ktrack/testdata/' %#ok<*NOPTS>
 saveToFile  = [savePath, objFileName, '.xyzuvw']                           %#ok<NOPTS>
 
@@ -27,7 +27,10 @@ elseif Scenario == 3
   % Moving around, stays above horizonish
   x  = 10 * cos(0.9 * pi*tt      ) .* tanh(tt);
   y  = 10 * sin(0.9 * pi*tt * 0.7) .* tanh(tt);
-  z  = 20 + 4.0 * sin(2*pi*tt * 0.6) .* tanh(tt*3); 
+  z  = 20 + 4.0 * sin(2*pi*tt * 0.6) .* tanh(tt*3);
+  u  = 0*x;
+  v  = pi * sin(2*pi*tt);
+  w  = 0*x;
 end
 
 sfigure(1); plot3( x,y,z,'r.' ); hold on;

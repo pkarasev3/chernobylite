@@ -6,7 +6,7 @@ function [img, g_WC, f, true_xy, true_Nframe, Zbuffer ] = ...
    
     
     f          = meta_data(23); assert( (1e2 < f) && (f < 1e4) ); % ensure sane f
-    disp('g_WC = '); disp(g_WC);
+    %disp('g_WC = '); disp(g_WC);
     
     true_xyz1_W = [meta_data(3:5)';1];
     true_xyz1_C = g_WC * true_xyz1_W;

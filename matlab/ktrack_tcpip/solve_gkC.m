@@ -46,13 +46,13 @@ function [g_ctrl, TKR ] = solve_gkC( TKR, KOpts )
           wMax(LoL) = 0;
         end
       end
-      wMax
-      wMin
+      %wMax
+      %wMin
       assert( sum( wMax < wMin ) == 0 );
       w_f2fin =  w_f2f(1:2);
       xydirin =  [tx;ty] ./ sqrt(1e-15+tx.^2+ty.^2);
 
-      opts    = optimset('Display','final','MaxFunEvals',10^3,.... %'iter-detailed'
+      opts    = optimset('Display','off','MaxFunEvals',10^3,.... %'final','iter-detailed'
                          'Algorithm','active-set','TolFun',1e-8,'TolX',1e-8);
       x0      = w_ctrl(1:2);
       cin0    = wcon(x0);
@@ -75,7 +75,7 @@ function [g_ctrl, TKR ] = solve_gkC( TKR, KOpts )
  function E = wcost( x )
       wC     = x(:);
       w_k_d  = w_f2fin(:) - wC; % tauDelay removed... already applied it at init
-      E      = ( sum( w_k_d.^2 ) ) ;%+ 1e-1*sum(wC.^2);
+      E      = ( sum( w_k_d.^2 ) ) ;
     end
 
     function [cin,ceq] = wcon(x)
