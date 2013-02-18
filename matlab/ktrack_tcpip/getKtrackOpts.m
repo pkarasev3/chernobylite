@@ -13,8 +13,8 @@ saveRate = 0;
 showRate = 1;
 
 b_useUControl = false();
-b_incrementalWarp = false;
-
+b_incrementalWarp = false();
+b_getPsiTru = true();
 if strcmp(mode,'NoCompNoU_LoC')
   b_compensateMotion = false(); 
   b_computeHorizon   = false();
@@ -31,6 +31,7 @@ elseif strcmp(mode,'YesCompNoU')
   i_maxInputFrames   = 200;
   showRate           = 1;
   C_iters            = 10; 
+  saveRate           = 5;
 elseif strcmp(mode,'YesCompYesU')
   b_compensateMotion = true();
   b_computeHorizon   = false();
@@ -38,6 +39,7 @@ elseif strcmp(mode,'YesCompYesU')
   C_iters            = 10; 
   showRate           = 1;
   b_useUControl      = true();
+  saveRate           = 0;
 end
 
 res_fname           = [mode '_' num2str(C_iters) '_results.mat'];
@@ -51,7 +53,7 @@ opts = struct('output_port',5001,'number_of_retries',10,...
     'compensation', b_compensateMotion,...
     'horizon', b_computeHorizon,...
     'max_input_frames',i_maxInputFrames,'contour_iters',C_iters,...
-    'getPsiTru',true,...
+    'getPsiTru',b_getPsiTru,...
     'saveImages',saveRate,...
     'showImages',showRate,...
     'result_filename',res_fname,...
