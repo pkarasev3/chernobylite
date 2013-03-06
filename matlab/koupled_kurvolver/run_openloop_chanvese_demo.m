@@ -1,10 +1,16 @@
 function [phi1 phi2 img_show U U0 tt xx yy] = run_openloop_chanvese_demo()
 % run demo func in-place:
 % [phi1 phi2 img_show] = run_lskk_demo();
-
-addpath('~/source/chernobylite/matlab/util/');
-addpath('~/source/chernobylite/matlab/display_helpers/');
-addpath('~/source/chernobylite/matlab/LevelSetMethods/');
+set(0,'defaultaxesfontsize',16);
+set(0,'defaulttextfontsize',18);
+set(0,'defaulttextfontname','Arial');
+set(0,'defaultaxesfontweight','bold');
+set(0,'defaultlinelinewidth',2);
+set(0,'defaultlinemarkersize',4);
+addpath('../LSMlibPK/');
+addpath('../util/');
+addpath('../display_helpers/');
+addpath('../LevelSetMethods/');
 
 m       = 256;
 n       = 256;
@@ -159,8 +165,8 @@ save run_openloop_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel
     dt0   = 0.8;
     dt_a  = dt0 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     phi   = phi + dt_a * dphi;
-    phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', 2);
-    
+    %phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', 2);
+    phi   =  reinitializeLevelSetFunction(phi,1,1,2,3,2,false() );
     
     
   end
