@@ -12,6 +12,9 @@ addpath('../util/');
 addpath('../display_helpers/');
 addpath('../LevelSetMethods/');
 
+bSaveFinal = false();
+bSaveAll   = bSaveFinal && ( false() );
+
 m       = 256;
 n       = 256;
 [xx yy] = meshgrid(linspace(-1,1,m),linspace(-1,1,n));
@@ -26,20 +29,23 @@ img      = 0.5 * (img1 + img2);
 img      = img - min(img(:)); img = img / max(img(:));
 
 
+bCauseOverlap = true();
+if bCauseOverlap
+  xy1     = [.25,0.00];
+  xy2     = [.10,-0.20];
+else
+  xy1     = [0,-0.5];  % center of curve 1
+  xy2     = [0.15,0];  % center of curve 2
+end
 
-xy1     = [0,-0.5];
-xy2     = [0.15,0];
-
-
-RadInit = 0.2;
+RadInit = 0.21;
 d1      = RadInit - sqrt( ((xx-xy1(1))).^2 + ((yy-xy1(2))).^2 );
 d2      = RadInit - sqrt( ((xx-xy2(1))).^2 + ((yy-xy2(2))).^2 );
-phi1    = tanh(1e2*d1);
-phi2    = tanh(1e2*d2);
+phi1    = sqrt(m*n)*d1;
+phi2    = sqrt(m*n)*d2;
 
-sfigure(1); clf;
 
-epsilon   = 0.8;
+epsilon   = sqrt(2);
 Heavi     = @(z)  1 * (z >= epsilon) + (abs(z) < epsilon).*(1+z/epsilon+1/pi * sin(pi*z/epsilon))/2.0;
 delta     = @(z)  (abs(z) < epsilon).*(1 + cos(pi*z/epsilon))/(epsilon*2.0); %fucking zombie bugs...
 
@@ -51,14 +57,16 @@ gap_pointwise_cost  = @(p1,p2,qE)  ( (Heavi(p1+qE) - Heavi(p1)).*(1-Heavi(p2)) )
 emptygap            = @(p1,p2,qE)  trapz(trapz(  gap_pointwise_cost(p1,p2,qE) ) );
 
 x=linspace(-1,1,100);
-sfigure(1); subplot(2,1,2);  plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); hold off;
+sfigure(3); clf; plot(x,Heavi(x),'r--'); hold on; plot(x,delta(x),'b-.'); hold off;
+sfigure(1); clf; sfigure(2); clf;
 
-
-
+phi1_star = (img > 0.75)*2.0 - 1.0; phi1_star=10*phi1_star;
+phi2_star = (img > 0.45).*(img < 0.55).*(xx>0)*2.0 - 1.0; phi2_star=10*phi2_star;
+sfigure(3); imagesc( [ phi1_star, phi2_star] ); title('[ \phi_1^* , \phi_2^* ]'); axis equal
 tt = 0;
 img0 = img;
-%img  = imfilter( img * 255, fspecial('gaussian',[5 5],1),'replicate');
-%img  = img - mean(img(:));
+imgForU = imfilter( img, fspecial('gaussian',[3 3],1),'replicate');
+
 
 lambda     = mean(abs(img(:)));
 kappa_phi  = 0*phi1;
@@ -76,45 +84,35 @@ relTol     = 1e-4;
 absTol     = 1e2;
 phi_show_thresh = 0.9;
 tsum            = 0;
-U               = 0 * phi1;
+U1               = 0 * phi1;
+U2               = 0 * phi2;
 eps_u           = 1e-1;
 steps           = 0;
 MaxSteps        = 1000;
+Umax            = 2.0;
+
 while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
     (min([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (steps < MaxSteps) )
-  steps = steps + 1 + eps_u - eps_u;
-  
-  % Create instantaneous state change every so often
-  %   bTriggerInput1 = 0;
-  %   if( tsum > 0.01 )
-  %     bTriggerInput1 = 1;
-  %     tsum           = 0;
-  %     Uxy1 = [106,101]; % Input U(x,y,t)
-  %     U0   = 10;
-  %     Rin  = 10;
-  %     dU   = U0*Heavi( Rin - sqrt( ((xx-Uxy1(1))).^2 + ((yy-Uxy1(2))).^2 ) );
-  %     U    = U + dU - (eps_u * U).^3;
-  %     phi1( 0 < (dU < 0).*(phi1>0)  ) = -1;
-  %     phi1( 0 < (dU > 0).*(phi1<=0) ) = +1;
-  %     phi1 =  reinit_SD(phi1, 1, 1, 0.8, 'ENO2', 10);
-  %
-  %     fprintf('added input at time %f, max U = %f, norm U = %f \n', ...
-  %       tt, max(abs(U(:))), norm(U(:)) );
-  %
-  %     fprintf('');
-  %
-  %   end
   
   
-  CouplingSymmetric = 0 * (Heavi(phi1*1e2).*Heavi(phi2*1e2));
-  C12        = CouplingSymmetric + (U.^2).*(-Heavi(U)+Heavi(phi1));
+  steps = steps + 1 ;
+  
+  
+  % Update Phi1
+  [U1 deltaU num_inputs] = GenerateUserInput( phi1_star, phi1, U1, imgForU, Umax ); %#ok<ASGLU>
+  CouplingSymmetric =  (Heavi(phi1*1e2).*Heavi(phi2*1e2));
+  C12        = CouplingSymmetric ;%+ (U.^2).*(-Heavi(U)+Heavi(phi1));
   prev_phi1  = phi1;
   [phi1 ta mui1 muo1]  = update_phi( img, phi1, 1e2*C12);
   
+  % Update Phi2
+  [U2 deltaU num_inputs] = GenerateUserInput( phi2_star, phi2, U2, imgForU, Umax ); %#ok<ASGLU>
   CouplingSymmetric = (Heavi(phi1*1e2).*Heavi(phi2*1e2));
   C21        = CouplingSymmetric;
   prev_phi2  = phi2;
   [phi2 tb mui2 muo2]  = update_phi( img, phi2, 1e2*C21 );
+  
+  sfigure(4); clf;imagesc(U1);
   
   mu1_in_out = [mu1_in_out, [mui1;muo1]];
   mu2_in_out = [mu2_in_out, [mui2;muo2]];
@@ -138,10 +136,15 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   
 end
 
-fprintf('done! saving .... \n');
-save run_openloop_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel2 ... 
-                               phi1 phi2 img img_show U U0 tt xx yy  mu1_in_out mu2_in_out steps
+fprintf('done! .... \n');
 
+if bSaveFinal
+  save run_openloop_chanvese_demo t_all delta_abs1 delta_abs2 ...
+                 delta_rel1 delta_rel2 phi1 phi2 img img_show U ...
+                 U0 tt xx yy  mu1_in_out mu2_in_out steps
+end
+
+  
 
   function  [mu_i mu_o] = compute_means( Img,phi )
      mu_i = trapz(trapz(Heavi( phi ) .* Img)) / trapz(trapz(Heavi( phi ) ) );
@@ -159,14 +162,13 @@ save run_openloop_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel
     g_alpha= (Img - mu_i).^2 - (Img - mu_o).^2 + Coupling;
     dphi  = delta(phi) .* (-g_alpha + lambda * kappa_phi) ;
     
-    fprintf('mu_i = %f, mu_o = %f, g_alpha max = %f, lam*kap max = %f,',...
+    fprintf('mu_i =%2.2f, mu_o =%2.2, g_alpha max =%2.2, lam*kap max =%2.2,',...
       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(lambda*kappa_phi(:))));
     
     dt0   = 0.8;
     dt_a  = dt0 / max(abs(dphi(:)));  % can go above 1 but then rel-step gets jagged...
     phi   = phi + dt_a * dphi;
-    %phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', 2);
-    phi   =  reinitializeLevelSetFunction(phi,1,1,2,3,2,false() );
+    phi   =  reinitializeLevelSetFunction(phi,1,1,2,3,2,false() ); %phi =  reinit_SD(phi, 1, 1, dt0, 'ENO2', 2);
     
     
   end
@@ -197,25 +199,26 @@ save run_openloop_chanvese_demo t_all delta_abs1 delta_abs2 delta_rel1 delta_rel
     
     img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
     img_show(img_show>1)=1; img_show(img_show<0)=0;
-    sh=sfigure(1); subplot(1,2,2); imshow(img_show);
-    title(['image with coupled contours, ||U||_2=' num2str(norm(U)) ', t=' num2str(tt) ]);
-    setFigure(sh,[10 10],3.2,1.5);
+    sh=sfigure(1); %subplot(1,2,2); 
+    imshow(img_show);
+    title(['image with coupled contours, ||U_1||_2=' num2str(norm(U1(:))) ', t=' num2str(tt) ]);
+    %setFigure(sh,[10 10],3.2,1.5);
     fprintf( 'max-abs-phi = %f, t= %f, steps = %d \n',max(abs(phi1(:))),tt, steps);
     
-    imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
-        
+    if bSaveAll
+      imwrite(img_show,['openloop_chanvese_demo_' num2str_fixed_width(steps) '.png']);
+    end
     
-    sfigure(1); subplot(1,2,1);
+    sfigure(2); %subplot(1,2,1);
     semilogy( t_all,delta_rel1,'r-.' ); hold on;
     semilogy( t_all,delta_rel2,'g--');
     semilogy( t_all,delta_abs1,'m-.' );
-    semilogy( t_all,delta_abs2,'c--');
-    hold off;
+    semilogy( t_all,delta_abs2,'c--');    hold off;
     legend('\Delta-rel for \phi_1','\Delta-rel for \phi_2', ...
       '\Delta-abs for \phi_1','\Delta-abs for \phi_2');
     title('relative levelset function change');
     
-    drawnow;
+    pause(0.001); drawnow; 
     
     
   end
