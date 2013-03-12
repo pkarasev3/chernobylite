@@ -19,7 +19,7 @@ function [U h_out uk] = updateU( U, phi_star,phi,px,py,img, Umax)
      
       alpha  = 0.1 * (max(img(:)) - min(img(:)) )^2;
       
-      h_of_u = (Umax/2) * uk*( (exp( 0.5-( ( (X - px).^2 + (Y - py).^2 ) ) )) ...
+      h_of_u = (Umax/5) * uk*( (exp( 0.5-( ( (X - px).^2 + (Y - py).^2 ) ) )) ...
                                       .* ( (img(py,px)-img).^2  <= alpha ) );
       h_out  = h_of_u;
       Uraw = Uraw + h_of_u;
@@ -41,4 +41,6 @@ function [U h_out uk] = updateU( U, phi_star,phi,px,py,img, Umax)
         h_of_u = 0*h_of_u; % only done once
       end
     end
-end
+    U( U >  Umax*2)= 2*Umax;
+    U( U < -Umax*2)=-2*Umax;
+end 

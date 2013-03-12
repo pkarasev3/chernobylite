@@ -1,8 +1,8 @@
 function [U deltaU num_inputs] = GenerateUserInput( phi_star, phi, U, ...
-                                                               imgForU, Umax )
+                                                               imgForU, Umax, num_inputs )
 
 % Generate and accumulate user inputs
-  num_inputs = 3;
+  %num_inputs = 3;
   
   k = 1;
   U_= U;
@@ -14,6 +14,12 @@ function [U deltaU num_inputs] = GenerateUserInput( phi_star, phi, U, ...
     idx_u = find( abs( (phi_star > 0).*(  0 > phi ) - ...
       (phi_star < 0).*(  0 < phi ) ) > 0 );
     
+    idx_u2 = idx_u; 
+    idx_u2( abs(phi(idx_u)) >= 4 ) = [];
+    if ~isempty(idx_u2) 
+      idx_u=idx_u2;
+    end
+    
     if( (numel(idx_u) < k ) )
       px = 1; py = 1;
     else
@@ -24,7 +30,7 @@ function [U deltaU num_inputs] = GenerateUserInput( phi_star, phi, U, ...
     diffU=norm( U(:)-U_(:) );
     
     if( k<= 1);      fprintf('diffU = ');    end;
-    fprintf(' %6.2g ,  ',diffU);
+    %fprintf(' %6.2g ,  ',diffU);
     k  = k+1;
     if( k==num_inputs);      fprintf('\n');    end;
     

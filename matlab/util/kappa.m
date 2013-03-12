@@ -1,4 +1,4 @@
-function [K dx dy dx2 dy2] = kappa(phi, p, dX)
+function [K dx dy dx2 dy2 p dX] = kappa(phi, p, dX)
   if( nargin < 2 )
     dX = 1.0;
   end
@@ -12,13 +12,14 @@ function [K dx dy dx2 dy2] = kappa(phi, p, dX)
       p = 1:numel(phi);
       use_all_idx=true;
   end
-  [rr cc] = ind2sub(size(phi), p);
+  
 
   % *** Performance Note: *** there is much repetition of computation here! Profiler result 
   % indicates we waste massive time here doing safe_sub2ind(), when indices p are often constant 
   % between calls to this function. 
   if ~exist('Dxx','var')
     kappa_helper; 
+    %fprintf('Generated KappaHelper; should only happen once!\n');
     assert( 0<exist('Dy','var') );
   end
   
@@ -34,7 +35,6 @@ function [K dx dy dx2 dy2] = kappa(phi, p, dX)
   % sum(sum( sqrt(dx2 + dy2) ) )  \leq  (d/2) sum(sum( abs(phi) ) )
   
   if use_all_idx
-    
     K = reshape(K,size(phi));
     dx=reshape(dx,size(phi));
     dy=reshape(dy,size(phi));
@@ -45,7 +45,7 @@ function [K dx dy dx2 dy2] = kappa(phi, p, dX)
 end
 
 
-function ind = safe_sub2ind(sz, rr, cc)
+function ind = safe_sub2ind(sz, rr, cc) %#ok<*DEFNU>
   rr(rr < 1) = 1;
   rr(rr > sz(1)) = sz(1);
   cc(cc < 1) = 1;
