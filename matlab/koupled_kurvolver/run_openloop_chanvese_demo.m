@@ -12,6 +12,8 @@ addpath('../util/');
 addpath('../display_helpers/');
 addpath('../LevelSetMethods/');
 
+init_parallel(4);
+
 bSaveFinal = false();
 bSaveAll   = bSaveFinal && ( false() );
 
@@ -62,6 +64,14 @@ sfigure(1); clf; sfigure(2); clf;
 
 phi1_star = (img > 0.75)*2.0 - 1.0; phi1_star=10*phi1_star;
 phi2_star = (img > 0.45).*(img < 0.55).*(xx>0)*2.0 - 1.0; phi2_star=10*phi2_star;
+
+phi_star_Set = {phi1_star, phi2_star};
+parfor i = 1:2
+  phi_star_Set{i} = reinitializeLevelSetFunction(phi_star_Set{i},1,1,30,3,2,false() ); 
+end
+phi1_star = phi_star_Set{1};
+phi2_star = phi_star_Set{2};
+
 sfigure(3); imagesc( [ phi1_star, phi2_star] ); title('[ \phi_1^* , \phi_2^* ]'); axis equal
 tt = 0;
 img0 = img;

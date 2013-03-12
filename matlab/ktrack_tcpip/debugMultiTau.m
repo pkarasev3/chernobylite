@@ -30,10 +30,15 @@ showColor = 1;
 cumimg    = 0.1*repmat(TKR.img0,[1 1 3]);
 
 wv_ctrl = real(logm(TKR.g_ctrl))
-
+wv_ctrl = wv_ctrl * 0.02 / max(abs(wv_ctrl(:)));
 xyF = get_center(phi_init);
 
-for nDelay=1:3
+nDelays=-2:1:2;
+cvals  = { [0,117,220],[255,0,16],[43,206,72],[224,255,102],[220,163,255] };
+assert(numel(nDelays)==numel(cvals));
+for nd=1:numel(nDelays)
+  cvals{nd} = cvals{nd}/255;
+  nDelay   = nDelays(nd);
   
   showColor    = 1;%0*(showColor>0) + 1*(showColor<=0);
   z0           = -100;
@@ -56,8 +61,8 @@ for nDelay=1:3
   phi = interp2(xx,yy,phi_init, xx1, yy1,'*linear',-100);
   phi = reinitializeLevelSetFunction( phi, 2, dX,20, 1, 1, true() );
   
-  showLS( 1, TKR.img1, phi_init, 0);
-  cumimg = showLS( 2, cumimg, phi, showColor);
+  showLS( 1, TKR.img1, phi_init, cvals{nd});
+  cumimg = showLS( 2, cumimg, phi, cvals{nd});
   
   pause(0.025);
   
@@ -67,10 +72,10 @@ sfigure(2); drawnow; pause(0.01);
 %matlab2tikz('ktrack_multi_z0_tikz.tex','relativePngPath','./figs',...
 %                                          'width','10.24cm','height','7.68cm');
 
-sfigure(2);
+sfigure(3);
 roix=1:32:480; roiy = 1:32:640;
 quiver( xx(roix,roiy),yy(roix,roiy), fx(roix,roiy), fy(roix,roiy),2 );
-
+fprintf('');
 end
 
 function [xyF] = get_center( phi_in)
@@ -87,7 +92,7 @@ end
 function [img_out] = showLS( nFig, img_in, phi_in,cval)
 % better to show as contour ?
 if nargin<4
-  cval=1;
+  cval=[0,1,0];
 end
 
 [epsilon,dX] = get_params();
@@ -99,12 +104,12 @@ else
 end
 imgg= img_show(:,:,2);
 phi = phi_in;
-imgr= img_show(:,:,1); imgb=img_show(:,:,3); phi_show_thresh = epsilon/1.5;%sqrt(2);
-imgr( abs( phi ) < phi_show_thresh ) = 0 + 1*(cval<=0);
-imgb( abs( phi ) < phi_show_thresh ) = 0 + 1*(cval<=0);
+imgr= img_show(:,:,1); imgb=img_show(:,:,3); phi_show_thresh = 0.7;%sqrt(2);
+imgr( abs( phi ) < phi_show_thresh ) = cval(1);
+imgb( abs( phi ) < phi_show_thresh ) = cval(3);
 imgg( abs( phi ) < phi_show_thresh) = (imgg( abs( phi ) < phi_show_thresh) .* ...
   abs( phi(abs(phi) < phi_show_thresh ) )/phi_show_thresh  + ...
-  1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh );
+  1.5 * (phi_show_thresh - abs( phi(abs(phi) < phi_show_thresh ) ) )/phi_show_thresh ) * (0.5 + cval(2));
 img_show(:,:,1) = imgr; img_show(:,:,2) = imgg; img_show(:,:,3) = imgb;
 img_show(img_show>1)=1; img_show(img_show<0)=0;
 imshow((img_show)); %);
