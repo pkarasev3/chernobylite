@@ -116,11 +116,9 @@ while true
       end
       
       xy0prev=xy0;
-      if true % Doh, need to record to TKR here.. % if opts.compensation
-        [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
-        fprintf('compensated OK!\n');
-      end
-      
+      [xy0 g_prv g_f2f] = getCompensation( g_WC, g_prv, xy0, f );
+      fprintf('compensated OK!\n');
+            
       if opts.horizon
         [horizonU]    = getMetaHorizon( g_WC, img, f );
         fprintf('got horizon OK!\n');

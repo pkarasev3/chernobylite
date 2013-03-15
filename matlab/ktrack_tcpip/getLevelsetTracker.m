@@ -63,6 +63,10 @@ function  tkr = getLevelsetTracker( params )
   tkr.get_center = @get_center;
   tkr.compensate = @apply_g_compensation;
   
+  if KOpts.bCalibrateDelay % forget the tracking, send fixed signal
+    tkr.get_center = @get_center_DelayCalib;
+  end
+  
   bTestShifter = false;
   if bTestShifter
     test_shifter(tkr.phi);
@@ -81,7 +85,16 @@ function  tkr = getLevelsetTracker( params )
   
   %---------------------------------------------%
   
-
+  function xyF = get_center_DelayCalib()
+    global TKR;    assert( KOpts.bCalibrateDelay );
+    frame_idx  = TKR.curr_Nframe;    f_idx_check=tkr.curr_Nframe;
+    xyF        = [tkr.img_size(2)/2 ; tkr.img_size(1)/2];
+    if mod(frame_idx,20) == 0
+      xyF(1) = xyF(1)-120;
+    elseif mod(frame_idx,30)==0
+      xyF(1) = xyF(1)+120;
+    end
+  end
   
   function [xyF] = get_center( )
     [yc xc] = find( tkr.phi >= 0 ); 

@@ -93,7 +93,10 @@ MaxSteps        = 600;
 Umax            = 1.5;
 
 Idx_Active      = 0; % 0 => none are active
-numInputs       = 2;
+numInputs       = 10;
+
+prev_xi1 = phi1-phi1_star;
+prev_xi2 = phi2-phi2_star;
 
 while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
      (    min([delta_abs1(end),delta_abs2(end)]) > absTol) ) &&  (steps < MaxSteps) )
@@ -101,7 +104,7 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   steps = steps + 1 ;
   
   if steps > 50
-    numInputs = 5+5*(steps<100);
+    numInputs = 1+2*(steps<200);
   end
   if steps > MaxSteps/2
     numInputs = 1;
@@ -123,15 +126,15 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   C12        = Heavi(1e2*phi2); 
   prev_phi1  = phi1;
   if Idx_Active == 1  
-    [U1 deltaU num_inputs] = GenerateUserInput( phi1_star, phi1, U1, imgForU, ...
-                                                       Umax, numInputs ); %#ok<ASGLU>
+    [U1 deltaU num_inputs] = GenerateUserInput( phi1_star, phi1, prev_xi1, U1, imgForU, ...
+                                                       Umax, numInputs ); %#ok<ASGLU>                                                     
     [phi1 ta mui1 muo1]  = update_active_phi( img, phi1, phi2, U1 );
   elseif Idx_Active == 2
     [phi1 ta mui1 muo1]  = update_not_active_phi( img, phi1, phi2, U1 );
   else
     [phi1 ta mui1 muo1]  = update_phi( img, phi1, C12);
   end
-  
+  prev_xi1 = (prev_phi1)-(phi1_star);  
   
   if sum( isnan(U1(:)) ) > 0 
     fprintf('4To 3a xep ?\n')
@@ -143,16 +146,17 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   C21        = Heavi(1e2*phi1);
   prev_phi2  = phi2;
   if Idx_Active == 2
-    [U2 deltaU num_inputs] = GenerateUserInput( phi2_star, phi2, U2, imgForU, Umax, numInputs ); %#ok<ASGLU>
+    [U2 deltaU num_inputs] = GenerateUserInput( phi2_star, phi2, prev_xi2, U2, imgForU, Umax, numInputs ); %#ok<ASGLU>
     [phi2 tb mui2 muo2] = update_active_phi( img, phi2, phi1, U2 );
   elseif Idx_Active == 1
     [phi2 tb mui2 muo2] = update_not_active_phi( img, phi2, phi1, U2 );
   else
     [phi2 tb mui2 muo2]  = update_phi( img, phi2, C21 );
   end
+  prev_xi2 =(prev_phi2)-(phi2_star);
+
   
   sfigure(4); subplot(2,1,1); imagesc(U1); axis image; subplot(2,1,2); imagesc(U2); axis image;
-  
   mu1_in_out = [mu1_in_out, [mui1;muo1]];
   mu2_in_out = [mu2_in_out, [mui2;muo2]];
   tt         = tt + ta + tb;
@@ -224,7 +228,7 @@ end
       mu_i,mu_o,max(abs(g_alpha(:))),max(abs(dUin(:))));
     maxGUc = [max(abs(g_alpha(:))),max(abs(dUin(:))),max(abs(dcpl(:)))] %#ok<NOPRT>
     
-    dt0   = epsilon*0.5;
+    dt0   = epsilon*0.95;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     phi   =  reinitializeLevelSetFunction(phi,1,1,2,2,2,true() ); 
@@ -235,7 +239,7 @@ function  [phi dt_a mu_i mu_o] = update_not_active_phi( Img, phi, phiActive, U)
     [mu_i, mu_o] = compute_means(Img,phi);
     kappa_phi(:) = kappa(phi,1:numel(phi));
     g_alpha      = (Img - mu_i).^2 - (Img - mu_o).^2 ;
-    dphi         = (-g_alpha + lambda * kappa_phi) ; 
+    dphi         = 0*(-g_alpha + lambda * kappa_phi) ; 
     
     gammaSqr = 0.25;
     dcpl     =  ( Heavi(phiActive) ).*(-gammaSqr);
@@ -246,7 +250,7 @@ function  [phi dt_a mu_i mu_o] = update_not_active_phi( Img, phi, phiActive, U)
        mu_i,mu_o,max(abs(g_alpha(:))),max(abs(dUin(:))));
      maxGUc = [max(abs(g_alpha(:))),max(abs(dUin(:))),max(abs(dcpl(:)))] %#ok<NOPRT>
 
-    dt0   = epsilon*0.5;
+    dt0   = 0.95;
     dt_a  = dt0 / max(abs(dphi(:)));  
     phi   = phi + dt_a * dphi;
     phi   =  reinitializeLevelSetFunction(phi,1,1,2,2,2,true() ); 

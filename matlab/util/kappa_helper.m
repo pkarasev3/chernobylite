@@ -1,4 +1,5 @@
-
+  [rr cc] = ind2sub(size(phi), p); 
+  
   % shift operations
   shiftD = @(M) M(safe_sub2ind(size(phi), rr-1, cc));
   shiftU = @(M) M(safe_sub2ind(size(phi), rr+1, cc));
