@@ -3,7 +3,8 @@ function opts = getKtrackOpts( )
 %mode = 'NoCompNoU_LoC';
 %mode = 'NoCompNoU_HiC';
 %mode = 'YesCompNoU';
-mode = 'YesCompYesU';
+%mode = 'YesCompYesU';
+mode  = 'CalibrateDelay';
 
 gkC_smart   = 1; %1 for use model of g_ctrl 
 
@@ -12,6 +13,7 @@ gkC_fmincon = 1; % use fmincon, not just model
 saveRate = 0;
 showRate = 1;
 
+b_calibDelay  = false();
 b_useUControl = false();
 b_incrementalWarp = false();
 b_getPsiTru = true();
@@ -40,6 +42,15 @@ elseif strcmp(mode,'YesCompYesU')
   showRate           = 1;
   b_useUControl      = true();
   saveRate           = 0;
+elseif strcmp(mode,'CalibrateDelay')
+  b_calibDelay       = true();
+  b_compensateMotion = true();
+  b_computeHorizon   = false();
+  i_maxInputFrames   = 500;
+  C_iters            = 3; 
+  showRate           = 1;
+  b_useUControl      = true();
+  saveRate           = 0;
 end
 
 res_fname           = [mode '_' num2str(C_iters) '_results.mat'];
@@ -59,7 +70,8 @@ opts = struct('output_port',5001,'number_of_retries',10,...
     'result_filename',res_fname,...
     'incremental_warp',b_incrementalWarp,...
     'gkC_smart',gkC_smart,'gkC_fmincon',gkC_fmincon,...
-    'bUseUControl',b_useUControl);
+    'bUseUControl',b_useUControl,...
+    'bCalibrateDelay',b_calibDelay);
   
 disp(opts);
 
