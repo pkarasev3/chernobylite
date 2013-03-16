@@ -21,10 +21,10 @@ addpath('~/source/chernobylite/matlab/LSMlibPK/');
        'KoptsMode',...           % Preference
        'Select Mode',...                    % Window title
        {'Select a tracking mode:'},...
-       {'NoCompNoU_HiC','YesCompNoU','YesCompYesU','CalibrateDelay';     % Values and 
-        'NoCompNoU_HiC','YesCompNoU','YesCompYesU','CalibrateDelay'},... % button strings
-       'ExtraOptions','BlyatX',...             % Additional button
-       'DefaultButton','CalibrateDelay');    % Default choice 
+       {'NoCompNoU_HiC','YesCompNoU','YesCompYesU','CalibrateDelay'} )%;     % Values and 
+        %'NoCompNoU_HiC','YesCompNoU','YesCompYesU','CalibrateDelay'},... % button strings
+       %'ExtraOptions','BlyatX',...             % Additional button
+%val=getpref('mygraphics', 'KoptsMode')%, 'ask');        % bizarre that I need this
        
      
 opts = getKtrackOpts(selectedButton); % Internal options set here 
