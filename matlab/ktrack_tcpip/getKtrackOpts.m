@@ -1,13 +1,12 @@
-function opts = getKtrackOpts( )
+function opts = getKtrackOpts( mode )
 
 %mode = 'NoCompNoU_LoC';
 %mode = 'NoCompNoU_HiC';
 %mode = 'YesCompNoU';
 %mode = 'YesCompYesU';
-mode  = 'CalibrateDelay';
+%mode  = 'CalibrateDelay';
 
 gkC_smart   = 1; %1 for use model of g_ctrl 
-
 gkC_fmincon = 1; % use fmincon, not just model
                  % seems to fail now, why? bad cost func ... 
 saveRate = 0;
@@ -17,24 +16,24 @@ b_calibDelay  = false();
 b_useUControl = false();
 b_incrementalWarp = false();
 b_getPsiTru = true();
-if strcmp(mode,'NoCompNoU_LoC')
+if strcmp(mode,'nocompnou_loc')
   b_compensateMotion = false(); 
   b_computeHorizon   = false();
   C_iters             = 10; 
   i_maxInputFrames    = 200;
-elseif strcmp(mode,'NoCompNoU_HiC')
+elseif strcmp(mode,'nocompnou_hic')
   b_compensateMotion = false();
   b_computeHorizon   = false();
   C_iters             = 30; 
   i_maxInputFrames    = 200;  
-elseif strcmp(mode,'YesCompNoU')
+elseif strcmp(mode,'yescompnou')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
   showRate           = 1;
   C_iters            = 10; 
-  saveRate           = 5;
-elseif strcmp(mode,'YesCompYesU')
+  saveRate           = 0;
+elseif strcmp(mode,'yescompyesu')
   b_compensateMotion = true();
   b_computeHorizon   = false();
   i_maxInputFrames   = 200;
@@ -42,7 +41,7 @@ elseif strcmp(mode,'YesCompYesU')
   showRate           = 1;
   b_useUControl      = true();
   saveRate           = 0;
-elseif strcmp(mode,'CalibrateDelay')
+elseif strcmp(mode,'calibratedelay')
   b_calibDelay       = true();
   b_compensateMotion = true();
   b_computeHorizon   = false();
@@ -51,6 +50,8 @@ elseif strcmp(mode,'CalibrateDelay')
   showRate           = 1;
   b_useUControl      = true();
   saveRate           = 0;
+else
+  assert(0); % invalid mode! 
 end
 
 res_fname           = [mode '_' num2str(C_iters) '_results.mat'];

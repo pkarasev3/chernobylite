@@ -2,6 +2,7 @@
 % run this server first, then run something like ktrack client:
 %         ./simulator_client -m ../../testdata/F22mod.3ds
 
+% run this to clear the preferences:  rmpref('mygraphics')
 
 if ~exist('JavaAndPathsAreSetUp','var')
   import java.net.ServerSocket
@@ -16,7 +17,17 @@ addpath('~/source/chernobylite/matlab/util/');
 addpath('~/source/chernobylite/matlab/display_helpers/');
 addpath('~/source/chernobylite/matlab/LSMlibPK/');
 
-opts = getKtrackOpts(); % Internal options set here 
+[selectedButton,dlgShown]=uigetpref('mygraphics',... % Group
+       'KoptsMode',...           % Preference
+       'Select Mode',...                    % Window title
+       {'Select a tracking mode:'},...
+       {'NoCompNoU_HiC','YesCompNoU','YesCompYesU','CalibrateDelay';     % Values and 
+        'NoCompNoU_HiC','YesCompNoU','YesCompYesU','CalibrateDelay'},... % button strings
+       'ExtraOptions','BlyatX',...             % Additional button
+       'DefaultButton','CalibrateDelay');    % Default choice 
+       
+     
+opts = getKtrackOpts(selectedButton); % Internal options set here 
 global KOpts;
 KOpts = opts;
 
@@ -205,7 +216,7 @@ while true
   end
 end
 
-if true_Nframe > opts.max_input_frames 
+if true_Nframe > opts.max_input_frames  % If completed run and not error'd out
   err_xy = sqrt( sum( (results.estm_xy - results.true_xy).^2, 2 ) );
   meanXYerr = mean( err_xy ) %#ok<NOPTS>
   save ResultsKtrack  results  KOpts  TKR  meanXYerr
