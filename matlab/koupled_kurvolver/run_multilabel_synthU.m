@@ -1,4 +1,4 @@
-function [phi1 phi2 img_show tt xx yy] = run_multilabel_synthU()
+function [phi1 phi2 phi1_star phi2_star img_show tt xx yy] = run_multilabel_synthU()
 % run demo func in-place:
 % [phi1 phi2 img_show] = run_lskk_demo();
 set(0,'defaultaxesfontsize',16);
@@ -14,7 +14,7 @@ addpath('../LevelSetMethods/');
 
 % to clear GUI prefs:  rmpref('mygraphics')
 
-bSaveFinal = true();%false();
+bSaveFinal = true;%false();
 bSaveAll   = bSaveFinal && true%( false() );
 
 m       = 256;
@@ -76,12 +76,11 @@ if strcmp('hjikbrain',selectedButton)
   [phi1,phi2,phi1_star, phi2_star, img] = load_IKHJ( );
 end
 
-
+img0 = img;
+img  = 5*img;
 sfigure(3); imagesc( [ phi1_star, phi2_star] ); title('[ \phi_1^* , \phi_2^* ]'); axis equal
 tt = 0;
-img0 = img;
 imgForU = imfilter( 5*img, fspecial('gaussian',[3 3],1),'replicate')+1e-3;
-
 
 
 
@@ -100,17 +99,20 @@ mu2_in_out = [mu_i2;mu_o2];
 t_all      = [0];
 relTol     = 1e-4;
 absTol     = 1e2;
-phi_show_thresh = epsilon;
+phi_show_thresh = epsilon*0.9;
 tsum            = 0;
-U1               = 0 * phi1;
-U2               = 0 * phi2;
+U1               = 0 * phi1 - 0.5;
+U2               = 0 * phi2 ;
 eps_u           = 1e-1;
 steps           = 0;
-MaxSteps        = 600;
-Umax            = 1.5;
+MaxSteps        = 5000;
+Umax            = 1.25*max(img(:).^2);
+
+U2( phi2 > epsilon  ) =  Umax/2;
+U2( (phi2 < 0).*(phi2_star<-epsilon/2)>0  ) = -Umax/2;
 
 Idx_Active      = 0; % 0 => none are active
-numInputs       = 10;
+numInputs       = 15;
 
 prev_xi1 = phi1-phi1_star;
 prev_xi2 = phi2-phi2_star;
@@ -120,11 +122,12 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   
   steps = steps + 1 ;
   
-  if steps > 50
-    numInputs = 1+2*(steps<200);
-  end
+
   if steps > MaxSteps/2
     numInputs = 1;
+  end
+  if (steps>300) && (~ (mod(steps,3)==0) )
+    numInputs=0;
   end
   
   D1 = eval_label_dist(phi1_star,phi1) / trapz(trapz(Heavi(phi1_star))); 
@@ -145,6 +148,8 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   if Idx_Active == 1  
     [U1 deltaU num_inputs] = GenerateUserInput( phi1_star, phi1, prev_xi1, U1, imgForU, ...
                                                        Umax, numInputs ); %#ok<ASGLU>                                                     
+        phi1( (U1 >0).*(phi1<-epsilon) > 0 ) = -epsilon;
+        phi1( (U1 <0).*(phi1>epsilon) > 0 )  = epsilon;
     [phi1 ta mui1 muo1]  = update_active_phi( img, phi1, phi2, U1 );
   elseif Idx_Active == 2
     [phi1 ta mui1 muo1]  = update_not_active_phi( img, phi1, phi2, U1 );
@@ -164,6 +169,8 @@ while( ( (min([delta_rel1(end),delta_rel2(end)]) > relTol)  || ...
   prev_phi2  = phi2;
   if Idx_Active == 2
     [U2 deltaU num_inputs] = GenerateUserInput( phi2_star, phi2, prev_xi2, U2, imgForU, Umax, numInputs ); %#ok<ASGLU>
+    phi2( (U2 >0).*(phi2<-epsilon) > 0 ) = -epsilon;
+    phi2( (U2 <0).*(phi2>epsilon) > 0 ) = epsilon;
     [phi2 tb mui2 muo2] = update_active_phi( img, phi2, phi1, U2 );
   elseif Idx_Active == 1
     [phi2 tb mui2 muo2] = update_not_active_phi( img, phi2, phi1, U2 );
@@ -215,9 +222,9 @@ end
      mu_o = trapz(trapz( (1-Heavi( phi )) .* Img)) / trapz(trapz( (1-Heavi( phi )) ) );
   end
 
-  function  [mu_i mu_o] = compute_local_means( Img,phi )
-     HP   = Heavi(phi).*Heavi(abs(phi)+5.0);
-     HM   =(1- Heavi(phi)).*Heavi(abs(phi)+5.0);
+  function  [mu_i mu_o] = compute_local_means( Img,phi,rad )
+     HP   = Heavi(phi).*Heavi(abs(phi)+rad);
+     HM   =(1- Heavi(phi)).*Heavi(abs(phi)+rad);
      mu_i = trapz(trapz(HP.* Img)) / trapz(trapz(HP) );
      mu_o = trapz(trapz( HM .* Img)) / trapz(trapz( HM ) );
   end
@@ -239,7 +246,8 @@ end
 
   function  [phi dt_a mu_i mu_o] = update_active_phi( Img, phi, phiInactive, U)
     %[mu_i, mu_o] = compute_means(Img,phi);
-    [mu_i, mu_o] = compute_local_means(Img,phi);
+    rad=10;
+    [mu_i, mu_o] = compute_local_means(Img,phi,rad);
     kappa_phi(:) = kappa(phi,1:numel(phi));
     g_alpha      = (Img - mu_i).^2 - (Img - mu_o).^2 ;
     dphi         =  (-g_alpha + lambda * kappa_phi) ;
@@ -264,7 +272,8 @@ function  [phi dt_a mu_i mu_o] = update_not_active_phi( Img, phi, phiActive, U)
     [mu_i, mu_o] = compute_means(Img,phi);
     kappa_phi(:) = kappa(phi,1:numel(phi));
     g_alpha      = (Img - mu_i).^2 - (Img - mu_o).^2 ;
-    dphi         = 0*(-g_alpha + lambda * kappa_phi) ; 
+    damper       = 0*0.25;
+    dphi         = damper*(-g_alpha + lambda * kappa_phi) ; 
     
     gammaSqr = 0.25;
     dcpl     =  ( Heavi(phiActive) ).*(-gammaSqr);
@@ -345,22 +354,45 @@ function [Xphi1, Xphi2, Xphi1_star, Xphi2_star, img_out] = load_IKHJ( )
     sliceInterest=35;
     imgSlice=imgVol(:,:,sliceInterest);
     labSlice=labVol(:,:,sliceInterest);
-    imgSlice=imgSlice(1:61,4:64);
-    labSlice=labSlice(1:61,4:64);
+    imgSlice=imgSlice(1:60,1:60);
+    labSlice=labSlice(1:60,1:60);
+    
+    
+    grayMatterMin=1600; grayMatterMax = 2600;
+    labSlice( (labSlice==8).*(imgSlice<grayMatterMin)>0 )=0;
+    labSlice( (labSlice==8).*(imgSlice>grayMatterMax)>0 )=0;
+    sfigure(1);imagesc(labSlice)    
+    labSlice(41:end,31:end)=0;
+    labSlice(37:end,20:33)=0;
+    labSlice(39:end,39:50)=0;
+    labSlice(45:end,45:end)=0;
+    labSlice(37:end,57:end)=0;
+    
+    sfigure(1);imagesc(labSlice) 
+    
     
     sz=256;
     
     % set up truth
-    Xphi1_star = 2.0*(labSlice==22)-1.0; Xphi1_star=imresize(Xphi1_star,sz/61,'bilinear');
-    Xphi2_star = 2.0*(labSlice==8)-1.0;  Xphi2_star=imresize(Xphi2_star,sz/61,'bilinear');
+    Xphi1_star = 2.0*(labSlice==22)-1.0; Xphi1_star=imresize(Xphi1_star,sz/size(labSlice,2),'bilinear');
+    Xphi2_star = 2.0*(labSlice==8)-1.0;  Xphi2_star=imresize(Xphi2_star,sz/size(labSlice,2),'bilinear');
     Xphi1_star = reinitializeLevelSetFunction(1e2*Xphi1_star,1,1,20,2,2,true() ); 
     Xphi2_star = reinitializeLevelSetFunction(1e2*Xphi2_star,1,1,20,2,2,true() ); 
     
-    img_out=imresize(double(imgSlice),sz/61,'bicubic');
-    img_out=(img_out-min(img_out(:)))/(max(img_out(:))-min(img_out(:)));
+    img_out=imresize(double(imgSlice),sz/60,'bicubic');
+    for mm=1:3
+      shft=1e-3;
+      img_out=(img_out-min(img_out(:)))/(max(img_out(:))-min(img_out(:)));
+      img_out=(img_out+shft).^(1.5); img_out=img_out/max(img_out(:));
+    end
+    sfigure(1);imagesc(img_out); colormap bone; max(img_out(:))
+    
     
     Xphi1 = Xphi1_star-max(Xphi1_star(:))+20.0;
     Xphi2 = Xphi2_star;
+    Xphi2(166:end,10:90)=-20;
+    Xphi2 = reinitializeLevelSetFunction(Xphi2,1,1,20,2,2,true() ); 
+   
 %     Xphi1(Xphi1>2)=2;
 %     Xphi2(Xphi2>2)=2;
 %     Xphi1(Xphi1<-2)=-2;

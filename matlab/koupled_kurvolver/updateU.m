@@ -17,16 +17,17 @@ function [U h_out uk] = updateU( U, phi_star,phi,px,py,img, Umax)
     
     if( 1  )
      
+      % this is annoying param...
       alpha  = 0.1 * (max(img(:)) - min(img(:)) )^2;
       
-      h_of_u = (Umax/2) * uk*( (exp( 0.5-( sqrt( (X - px).^2 + (Y - py).^2 ) ) )) ...
+      h_of_u = (Umax/4) * uk*( (exp( 0.5-( sqrt( (X - px).^2 + (Y - py).^2 ) ) )) ...
                                       .* ( (img(py,px)-img).^2  <= alpha ) );
       h_out  = h_of_u;
       Uraw = Uraw + h_of_u;
-      sub_iters = 2;
+      sub_iters = 3;
       smth      = fspecial('gaussian',[3 3],0.35);
       for iters = 1:sub_iters
-        %Usmth   = imfilter(U,smth,'replicate');
+        Usmth   = imfilter(U,smth,'replicate');
         Usmth   = U;
         [Ux Uy] = gradient( Usmth, dX); %, dX ); % (U/Umax).^2
         diffusionTermX        = (   Heavi( (U/Umax).^2 - 1 ).*Ux );% smth,'replicate');

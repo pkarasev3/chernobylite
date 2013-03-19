@@ -15,9 +15,14 @@ function [U deltaU num_inputs] = GenerateUserInput( phi_star, phi, prev_err, U, 
   
     % Find where there is disagreement with truth.
     % No input where error is naturally decreasing.
-    idx_u = find( (abs( (phi_star > 0).*(  0 > phi ) - ...
-      (phi_star < 0).*(  0 < phi ) )) ...
-       .*(abs((phi)-(phi_star))>=abs(prev_err))          );
+    if( k > num_inputs/2 )
+      idx_u = find( (abs( (phi_star > 0).*(  0 > phi ) - ...
+        (phi_star < 0).*(  0 < phi ) )) ...
+         .*(abs((phi)-(phi_star))>=abs(prev_err))          );
+    else
+      idx_u = find( (abs( (phi_star > 0).*(  0 > phi ) - ...
+        (phi_star < 0).*(  0 < phi ) ))           );
+    end
   
 %     
 %     currErr=phi(idx_u)-phi_star(idx_u);
@@ -27,7 +32,7 @@ function [U deltaU num_inputs] = GenerateUserInput( phi_star, phi, prev_err, U, 
     
     
     idx_u2 = idx_u; 
-    idx_u2( abs(phi(idx_u)) >= 4 ) = [];
+    idx_u2( abs(phi(idx_u)) >= 10 ) = [];
     if ~isempty(idx_u2) 
       idx_u=idx_u2;
     end
@@ -37,7 +42,7 @@ function [U deltaU num_inputs] = GenerateUserInput( phi_star, phi, prev_err, U, 
     else
       idx_u   = idx_u( randperm(numel(idx_u)) );
       [py px] = ind2sub( size( phi ),idx_u(k) );
-    end
+    end % This updateU is really stupid!! It should take a list!!!
     U_ = updateU( U_, phi_star,phi,px,py,imgForU,Umax);
     diffU=norm( U(:)-U_(:) );
     
