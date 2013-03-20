@@ -21,7 +21,7 @@
 #include <boost/format.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/thread/mutex.hpp>
-#include <boost/thread/thread.hpp>
+//#include <boost/thread/thread.hpp>
 
 using namespace cv;
 using namespace std;
