@@ -39,8 +39,8 @@ message(STATUS "    C++ flags (Debug):         ${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FL
 message(STATUS "OpenCV Version is ${OpenCV_VERSION} make sure you are using a sane version")
 
 
-#add_executable( WebcamViewer  apps/WebcamViewer.cpp )
-#target_link_libraries( WebcamViewer ${OpenCV_LIBS} ${Boost_LIBRARIES} )
+add_executable( WebcamViewer  apps/WebcamViewer.cpp )
+target_link_libraries( WebcamViewer ${OpenCV_LIBS} ${Boost_LIBRARIES} )
 
 
 ##################################################### OpenGL stuff

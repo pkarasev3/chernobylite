@@ -1236,7 +1236,7 @@ GLuint gltLoadShaderTripletWithAttributes(const char *szVertexShader,
     return hReturn;
 
 failed:
-
+    std::cout<<"FAILED loading shaders!"<<std::endl;
     glDeleteProgram(hReturn);
     glDeleteShader(hFragmentShader);
     glDeleteShader(hGeometryShader);
