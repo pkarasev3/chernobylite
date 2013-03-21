@@ -1164,6 +1164,7 @@ GLuint gltLoadShaderTripletWithAttributes(const char *szVertexShader,
     glGetShaderiv(hVertexShader, GL_COMPILE_STATUS, &testVal);
     if  (testVal == GL_FALSE) {
         glGetShaderInfoLog(hVertexShader, 1024, NULL, infoLog);
+        std::cout<<"error loading vertex shader: " << std::string(infoLog) << std::endl;
         goto failed;
     }
 
@@ -1176,6 +1177,7 @@ GLuint gltLoadShaderTripletWithAttributes(const char *szVertexShader,
         glGetShaderiv(hGeometryShader, GL_COMPILE_STATUS, &testVal);
         if  (testVal == GL_FALSE) {
             glGetShaderInfoLog(hGeometryShader, 1024, NULL, infoLog);
+            std::cout<<"error loading GEOMETRY shader: " << std::string(infoLog) << std::endl;
             goto failed;
         }
     }
@@ -1189,6 +1191,7 @@ GLuint gltLoadShaderTripletWithAttributes(const char *szVertexShader,
         glGetShaderiv(hFragmentShader, GL_COMPILE_STATUS, &testVal);
         if  (testVal == GL_FALSE) {
             glGetShaderInfoLog(hFragmentShader, 1024, NULL, infoLog);
+            std::cout<<"error loading FRAGMENT shader: " << std::string(infoLog) << std::endl;
             goto failed;
         }
     }

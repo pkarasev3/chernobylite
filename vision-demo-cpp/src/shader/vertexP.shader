@@ -5,21 +5,22 @@
 
 precision highp float;
 
-// Incoming per vertex... position 
+// Incoming per vertex... position
 in vec4 vVertex;
 //in vec3 vNormal;
 
-//out Vertex
-/*{
+out Vertex
+{
     vec3 normal;
     vec4 color;
 } vertex;
-*/
 
-out color;
+
+//out vec4 color;
 
 uniform vec3 vLightPosition;
 uniform mat4 mvMatrix;
+uniform mat4 mvpMatrix;
 uniform mat3 normalMatrix;
 
 void main(void)
@@ -37,12 +38,10 @@ void main(void)
 
     gl_PointSize = 2.0;
 
-    // Dot product gives us diffuse intensity
-    color = vec4( 1.0, 
-                         0.0, 
-                         0.0, 
-                         1.0);
-// mvMatrix * 
-    gl_Position   = mvMatrix * vVertex; //mvMatrix * 
+    vec4 color         = vec4( 1.0,0.0,0.0,0.5);
+    gl_Position   = mvMatrix * vVertex;
+
+    vertex.color = color;
+
     //vertex.normal = vNormal;
 }

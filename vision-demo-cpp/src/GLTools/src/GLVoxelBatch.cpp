@@ -65,8 +65,8 @@ void GLVoxelBatch::BeginVoxels(GLuint nMaxVerts)
 
   // Allocate new blocks. In reality, the other arrays will be
   // much shorter than the index array
-  pIndexes = new GLushort[nMaxIndexes];
-  pVerts = new M3DVector3f[nMaxIndexes];
+  pIndexes     = new GLushort[nMaxIndexes];
+  pVerts       = new M3DVector3f[nMaxIndexes];
   pTexCoords_a = new M3DVector3f[nMaxIndexes];
   pTexCoords_b = new M3DVector3f[nMaxIndexes];
   //    pNorms = new M3DVector3f[nMaxIndexes];
@@ -75,18 +75,22 @@ void GLVoxelBatch::BeginVoxels(GLuint nMaxVerts)
 
 /////////////////////////////////////////////////////////////////
 // add another 3D voxel-grid-ish point
-void GLVoxelBatch::AddPoint( M3DVector3f verts[1],
-                             M3DVector3f vTex_a[1],
-                             M3DVector3f vTex_b[1])
+void GLVoxelBatch::AddPoint( const M3DVector3f& vert,
+                             const M3DVector3f& vTex_a,
+                             const M3DVector3f& vTex_b)
 {
   const float _err = 0.00001f;
 
   //memcpy(pNorms[nNumVerts], vNorms[iVertex], sizeof(M3DVector3f));
   GLuint iVertex = 0; //iVertex < 3; iVertex++)
-  memcpy(pVerts[nNumVerts], verts[iVertex], sizeof(M3DVector3f));
+  memcpy(&(pVerts[nNumVerts]), &(vert[0]), sizeof(M3DVector3f));
 
-  memcpy(pTexCoords_a[nNumVerts], vTex_a[iVertex], sizeof(M3DVector3f));
-  memcpy(pTexCoords_b[nNumVerts], vTex_b[iVertex], sizeof(M3DVector3f));
+  float tx=pVerts[nNumVerts][0];
+  float ty=pVerts[nNumVerts][1];
+  float tz=pVerts[nNumVerts][2];
+
+  memcpy(pTexCoords_a[nNumVerts], &(vTex_a[0]), sizeof(M3DVector3f));
+  memcpy(pTexCoords_b[nNumVerts], &(vTex_b[0]), sizeof(M3DVector3f));
   pIndexes[nNumIndexes] = nNumVerts;
   nNumIndexes++;
   nNumVerts++;

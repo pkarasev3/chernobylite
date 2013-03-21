@@ -26,9 +26,9 @@ public:
 
   // Use these three functions to add triangles
   void BeginVoxels(GLuint nMaxVerts);
-  void AddPoint(   M3DVector3f verts[1],
-                   M3DVector3f vTexCoords_a[1],
-                   M3DVector3f vTexCoords_b[1]);
+  void AddPoint(  const M3DVector3f& vert,
+                  const M3DVector3f& vTex_a,
+                  const M3DVector3f& vTex_b);
   void End(void);
 
   // Useful for statistics

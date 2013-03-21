@@ -1,3 +1,8 @@
+// Geometry Shader 'Explode' Example
+// OpenGL SuperBible 5th Edition
+// Demonstrates 'explosion' of geometry using OpenGL geometry shaders
+// Program by Graham Sellers
+
 // OpenGL toolkit
 #include "GLTools.h"
 #include "GLMatrixStack.h"
@@ -5,22 +10,29 @@
 #include "GLFrustum.h"
 #include "GLGeometryTransform.h"
 #include "StopWatch.h"
-#include "GLVoxelBatch.h"
-
 #include <iostream>
-#include <math.h>
-#include <GL/glut.h>
 
+#include <math.h>
+#ifdef __APPLE__
+#include <glut/glut.h>
+#else
+#define FREEGLUT_STATIC
+#include <GL/glut.h>
+#endif
+
+#ifdef _MSC_VER
+#pragma comment (lib, "GLTools.lib")
+#endif /* _MSC_VER */
+#include "GLVoxelBatch.h"
 using namespace std;
 
 static GLFrame              viewFrame;
 static GLFrustum            viewFrustum;
+static GLTriangleBatch      torusBatch;
 static GLMatrixStack        modelViewMatrix;
 static GLMatrixStack        projectionMatrix;
 static GLGeometryTransform  transformPipeline;
 static GLShaderManager      shaderManager;
-
-static GLVoxelBatch      voxelBatch;
 
 static GLuint  explodeProgram; // The geometry shader 'exploder' program
 static GLint   locMVP;         // ModelViewProjection matrix uniform
@@ -29,41 +41,26 @@ static GLint   locNM;          // Normal matrix uniform
 
 static GLint   locPushOut;     // How far to push the geomery out
 
-int szX=32; int szY=32; int szZ=32;
+static GLVoxelBatch  voxelBatch;
 
-void  createChernobylPointGrid( ) {
+int szX=16; int szY = 16; int szZ=16;
 
+void makeVoxelGrid() {
   voxelBatch.BeginVoxels(szX*szY*szZ);
-// argh , fixed-function shit, don't use
-//  glDisable(GL_DEPTH_TEST);
-//  glPointSize(3.0f);
-//  glColor4f(1.0f,0.5f,0.5f,1.0f);
-//  glBegin(GL_POINTS); //starts drawing of points
+
   for( int i=0; i<szY; i++ ) {
     float y=i*2.0/(szY-1)-1.0f;
     for( int j=0; j<szX; j++ ) {
       float x=j*2.0/(szX-1)-1.0f;
       for( int k=0; k<szZ; k++ ) {
         float z=k*2.0/(szZ-1)-1.0f;
-        //glVertexAttrib1fv(GL_VERTEX_A)
-//        glVertex3f(x,y,z);
-//        glNormal3f(0.0f,0.0f,1.0f);
-//        glTexCoord3f( (x+1.0)/2.0, (y+1.0)/2.0, (z+1.0)/2.0 );
-        M3DVector3f verts{x*10,y*10,z*10};
+        M3DVector3f verts{x,y,z};
         M3DVector3f vTex_a{0,0,0};
         M3DVector3f vTex_b{0,0,0};
-        voxelBatch.AddPoint(&verts,&vTex_a,&vTex_b);
+        voxelBatch.AddPoint(verts,vTex_a,vTex_b);
       }
     }
-  } /** End the "chernobylGrid", wtf that is */
- // glEnd();
-}
-
-void drawChernobylPointGrid() {
-  // TODO: call me !
-   glPointSize(5.0);
-   voxelBatch.Draw();
-
+  }
 }
 
 // This function does any needed initialization on the rendering context.
@@ -73,23 +70,22 @@ void SetupRC(void)
   glClearColor(0.2f, 0.2f, 0.3f, 1.0f );
 
   glEnable(GL_DEPTH_TEST);
+  glDisable(GL_DEPTH_TEST);
   glEnable(GL_PROGRAM_POINT_SIZE);
-
   shaderManager.InitializeStockShaders();
-  viewFrame.MoveForward(0.0f);
+  viewFrame.MoveForward(4.0f);
 
   // Make the torus
-  //  gltMakeTorus(torusBatch, .70f /*R1*/, 0.10f/*r2*/, 11, 7);
+  gltMakeTorus(torusBatch, .70f /*R1*/, 0.10f/*r2*/, 11, 7);
 
-  createChernobylPointGrid();
+  makeVoxelGrid();
 
-  explodeProgram = gltLoadShaderPair("vertexP.shader","fragmentX.shader");
-
-//      gltLoadShaderTripletWithAttributes("vertexP.shader",
-//                                                      NULL,// "geometryX.shader",
-//                                                      "fragmentX.shader",
-//                                                      1,
-//                                                      GLT_ATTRIBUTE_VERTEX, "vVertex");
+  explodeProgram = gltLoadShaderTripletWithAttributes("vertexP.shader",
+                                                      "geometryX.shader",
+                                                      "fragmentX.shader",
+                                                          2,
+                                                          GLT_ATTRIBUTE_VERTEX, "vVertex",
+                                                          GLT_ATTRIBUTE_NORMAL, "vNormal");
 
   locMVP = glGetUniformLocation(explodeProgram, "mvpMatrix");
   locMV  = glGetUniformLocation(explodeProgram, "mvMatrix");
@@ -111,42 +107,12 @@ void RenderScene(void)
   // Clear the window and the depth buffer
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-//  viewFrame.SetOrigin(1.0,0.5,5.0);
-//  viewFrame.SetForwardVector(-1,-0.5,-5);
-//  viewFrame.SetUpVector(0,1,0);
-
-//  viewFrame.MoveForward(-0.001f);
-//  viewFrame.MoveRight(   0.0008f);
-//   viewFrame.MoveUp(      0.01f);
-//   viewFrame.MoveRight( 0.01f);
-  //viewFrame.RotateLocal(0.5f,1.0,0.0,0.0);
-
-  float xo = viewFrame.GetOriginX();
-  float yo = viewFrame.GetOriginY();
-  float zo = viewFrame.GetOriginZ();
-//  cout << "xo= "<<xo << ",yo= "<<yo<<",zo= " << zo << "\r\n"; cout.flush();
-
-  modelViewMatrix.LoadIdentity();
-
-  modelViewMatrix.PushMatrix(viewFrame); // ahh, this does NOT change vertices going into GLSL
-
-  modelViewMatrix.Rotate(rotTimer.GetElapsedSeconds() * 3.0f,0.0,1.0,0.0);
-
-  // OK follow their style: manage your own matrices, don't use gl*** stack functions
-//  glMatrixMode(GL_PROJECTION);
-//  glLoadIdentity();
-//  gluLookAt(0,0,5.0,0,0,0,0,1,0);       // but this does!
-
-//  glMatrixMode(GL_MODELVIEW);
-//  glLoadIdentity();
-
-
+  modelViewMatrix.PushMatrix(viewFrame);
 
   if(1) {
     /** rotate the scene for exploding torus */
-    // AHhhhhhh this stupid thing changes its internal matrix representation!
-    //modelViewMatrix.Rotate(rotTimer.GetElapsedSeconds() * 10.0f, 0.0f, 1.0f, 0.0f);
-    //modelViewMatrix.Rotate(rotTimer.GetElapsedSeconds() * 13.0f, 1.0f, 0.0f, 0.0f);
+    modelViewMatrix.Rotate(rotTimer.GetElapsedSeconds() * 10.0f, 0.0f, 1.0f, 0.0f);
+    modelViewMatrix.Rotate(rotTimer.GetElapsedSeconds() * 13.0f, 1.0f, 0.0f, 0.0f);
 
     GLfloat vEyeLight[] = { -100.0f, 100.0f, 100.0f };
     GLfloat vAmbientColor[] = { 0.1f, 0.1f, 0.1f, 1.0f };
@@ -156,30 +122,26 @@ void RenderScene(void)
     glUseProgram(explodeProgram);
 
     glUniformMatrix4fv(locMVP, 1, GL_FALSE, transformPipeline.GetModelViewProjectionMatrix());
+    //  float m[16];
+    //  glGetFloatv(GL_PROJECTION_MATRIX,m);
+    //  glUniformMatrix4fv(locMVP,1,GL_FALSE,m);
 
-    glUniformMatrix4fv(locMV, 1, GL_FALSE, transformPipeline.GetModelViewMatrix());
+    //glUniformMatrix4fv(locMV, 1, GL_FALSE, transformPipeline.GetModelViewMatrix());
+    float m2[16];
+    glGetFloatv(GL_MODELVIEW_MATRIX,m2);
+    glUniformMatrix4fv(locMV,1,GL_FALSE,m2);
 
     glUniformMatrix3fv(locNM, 1, GL_FALSE, transformPipeline.GetNormalMatrix());
 
-    float push_out = sinf(rotTimer.GetElapsedSeconds() * 3.0f) * 0.1f + 0.2f;
-
+    float push_out = sinf(rotTimer.GetElapsedSeconds() * 20.0f);
     glUniform1f(locPushOut, push_out);
 
-
-    /** experimental, PK */
-    drawChernobylPointGrid();
-
-    //torusBatch.Draw();
+    torusBatch.Draw();
+    //voxelBatch.Draw();
   }
+  modelViewMatrix.PopMatrix();
 
-  //glPushMatrix();
-//    glRotatef(+45.0,0.0,1.0,0.0);
-//    glRotatef(-20.0,1.0,0.0,0.0);
-    /** draw some static stuff */
-  //glPopMatrix();
-  modelViewMatrix.PopMatrix();  //   x>_x
-
-
+  torusBatch.Draw();
 
   glutSwapBuffers();
   glutPostRedisplay();
@@ -193,7 +155,7 @@ void ChangeSize(int w, int h)
   // Set Viewport to window dimensions
   glViewport(0, 0, w, h);
 
-  viewFrustum.SetPerspective(60.0f, float(w)/float(h), 0.1f, 100.0f);
+  viewFrustum.SetPerspective(35.0f, float(w)/float(h), 1.0f, 100.0f);
 
   projectionMatrix.LoadMatrix(viewFrustum.GetProjectionMatrix());
   transformPipeline.SetMatrixStacks(modelViewMatrix, projectionMatrix);
@@ -208,7 +170,7 @@ int main(int argc, char* argv[])
   glutInit(&argc, argv);
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH | GLUT_STENCIL);
   glutInitWindowSize(800, 600);
-  glutCreateWindow("Geometry Shader Exploder");
+  glutCreateWindow("Geometry Shader TEST");
   glutReshapeFunc(ChangeSize);
   glutDisplayFunc(RenderScene);
 
