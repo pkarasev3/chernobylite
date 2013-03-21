@@ -1,3 +1,6 @@
+// Geometry Shader 'Exploder' Example - Fragment Shader
+// Graham Sellers
+// OpenGL SuperBible 5th Edition
 #version 150
 
 precision highp float;

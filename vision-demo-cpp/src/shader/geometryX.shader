@@ -1,7 +1,14 @@
+// Geometry Shader 'Exploder' Example - Geometry Shader
+// Graham Sellers
+// OpenGL SuperBible 5th Edition
+#version 150
+
 precision highp float;
 
-layout (points) in;
-layout (triangle_strip, max_vertices = 12) out;
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 12) out; // set max num outputs possible
+/** Not allowed to mix output types!
+      layout (points, max_vertices = 3) out; */
 
 in Vertex
 {
@@ -9,33 +16,30 @@ in Vertex
     vec4 color;
 } vertex[];
 
-out vec4 color; /** gl_Position is implicitly an "out" as well*/
+out vec4 color;
 
-uniform vec3  vLightPosition;
-uniform mat4  mvpMatrix;
-uniform mat4  mvMatrix;
-uniform mat3  normalMatrix;
+uniform vec3 vLightPosition;
+uniform mat4 mvpMatrix;
+uniform mat4 mvMatrix;
+uniform mat3 normalMatrix;
+
 uniform float push_out;
 
 void main(void)
 {
   int n;
-  for (n = 0; n < 3; n++) {
-      color       = vertex[0].color;
+  vec3 Fn =
+  normalize(cross(gl_in[1].gl_Position.xyz - gl_in[0].gl_Position.xyz,
+                  gl_in[2].gl_Position.xyz - gl_in[0].gl_Position.xyz));
 
-      gl_Position = gl_in[0].gl_Position+vec4(0.0,0.0,0.0,0.0);
-      EmitVertex();
-
-      gl_Position = gl_in[0].gl_Position+vec4(0.05,0.05,0.0,0.0);
-      EmitVertex();
-
-      gl_Position = gl_in[0].gl_Position+vec4(0.05,-0.05,0.05,0.0);
+  for (n = 0; n < gl_in.length(); n++) {
+      color = vec4(1.0,0.0,0.0,0.25);//( n ) * vertex[n].color; //((float)n) / gl_in.length()
+      gl_Position = mvpMatrix *
+                     vec4( gl_in[n].gl_Position.xyz + Fn * push_out,
+                                                 gl_in[n].gl_Position.w);
       EmitVertex();
   }
   EndPrimitive();
 
-//          mvpMatrix *
-//                     vec4( gl_in[n].gl_Position.xyz + Fn * (push_out+0.01f),
-//                                                 gl_in[n].gl_Position.w);
 
 }
