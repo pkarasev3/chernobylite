@@ -38,9 +38,9 @@ void main(void)
     gl_PointSize = 2.0;
 
     // Dot product gives us diffuse intensity
-    color = vec4( 0.0, 
-                         1.0, 
-                         1.0, 
+    color = vec4( 1.0, 
+                         0.0, 
+                         0.0, 
                          1.0);
 // mvMatrix * 
     gl_Position   = mvMatrix * vVertex; //mvMatrix * 
