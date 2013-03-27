@@ -38,7 +38,7 @@ void main(void)
 
     gl_PointSize = 2.0;
 
-    vec4 color         = vec4( 1.0,0.0,0.0,0.5);
+    vec4 color    = vec4( 1.0,0.0,0.0,0.25);
     gl_Position   = mvMatrix * vVertex;
 
     vertex.color = color;

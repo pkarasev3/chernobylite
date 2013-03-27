@@ -57,6 +57,10 @@ include_directories(${CMAKE_SOURCE_DIR}/GLTools/include)
 add_executable(GSExplode  apps/GSExplode.cpp  ${glToolSrc} ${glToolHdr})
 target_link_libraries(GSExplode  ${CORE3DLIBS} ${OpenCV_LIBS} ${Boost_LIBRARIES})
 
+# basically the book's example
+add_executable(PointSprites  apps/PointSprites.cpp  ${glToolSrc} ${glToolHdr})
+target_link_libraries(PointSprites  ${CORE3DLIBS} ${OpenCV_LIBS} ${Boost_LIBRARIES})
+
 # experiment: setting up texture3D
 add_executable(experimental_tex3D  apps/experimental_tex3D.cpp )
 target_link_libraries(experimental_tex3D  ${CORE3DLIBS} ${OpenCV_LIBS} ${Boost_LIBRARIES})
