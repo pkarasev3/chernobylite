@@ -19,6 +19,8 @@ Xord = 2;
 bSaveVerbose = false();
 if nargin==0
   control_is_on = true;
+  Lambda1  = 0.1;
+  ImgScale = 5.0;
 else
   control_is_on = params(1);
   Lambda1       = params(2);
